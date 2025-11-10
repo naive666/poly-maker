@@ -13,11 +13,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def update_once():
+def update_once(all='All Markets', sel='Selected Markets'):
     """
     Initialize the application state by fetching market data, positions, and orders.
     """
-    update_markets()    # Get market information from Google Sheets
+    update_markets(all=all, sel=sel)    # Get market information from Google Sheets
     update_positions()  # Get current positions from Polymarket
     update_orders()     # Get current orders from Polymarket
 
@@ -85,7 +85,10 @@ async def main():
     
     # Initialize state and fetch initial data
     global_state.all_tokens = []
-    update_once()
+    all_ = 'Full Sports Markets'
+    sel_ = 'Selected Sports Markets'
+    update_once(all_, sel_)
+
     print("After initial updates: ", global_state.orders, global_state.positions)
 
     print("\n")

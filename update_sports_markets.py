@@ -1,4 +1,4 @@
-import time
+import time, json
 import pandas as pd
 from data_updater.trading_utils import get_clob_client
 from data_updater.google_utils import get_spreadsheet
@@ -80,6 +80,8 @@ def sport_json_to_df(mkt_info_dict, sport_type):
     question = mkt_info_dict.get('question')
     conditionId = mkt_info_dict.get('conditionId')
     slug = mkt_info_dict.get('slug')
+    answer1 = json.loads(mkt_info_dict['outcomes'])[0]
+    answer2 = json.loads(mkt_info_dict['outcomes'])[1]
     endDate = mkt_info_dict.get('endDate')
     liquidity = mkt_info_dict.get('liquidity')
     volume = mkt_info_dict.get('volume')
@@ -96,8 +98,8 @@ def sport_json_to_df(mkt_info_dict, sport_type):
     volume1yrClob = mkt_info_dict.get('volume1yrClob')
     best_bid = mkt_info_dict.get('bestBid')
     best_ask = mkt_info_dict.get('bestAsk')
-    token1 = mkt_info_dict.get('clobTokenIds')[0]
-    token2 = mkt_info_dict.get('clobTokenIds')[1]
+    token1 = json.loads(mkt_info_dict['clobTokenIds'])[0]
+    token2 = json.loads(mkt_info_dict['clobTokenIds'])[1]
     umaReward = mkt_info_dict.get('umaReward')
     negRisk = mkt_info_dict.get('negRisk')
     rewardsMinSize = mkt_info_dict.get('rewardsMinSize')
@@ -110,8 +112,10 @@ def sport_json_to_df(mkt_info_dict, sport_type):
         {
             'sport_type': sport_type,
             'question': question,
-            'conditionId': conditionId,
+            'condition_id': conditionId,
             'slug': slug,
+            'answer1': answer1,
+            'answer2': answer2,
             'best_bid': best_bid,
             'best_ask': best_ask,
             'endDate': endDate,
@@ -121,7 +125,7 @@ def sport_json_to_df(mkt_info_dict, sport_type):
             'lastTradePrice': lastTradePrice,
             'sportsMarketType': sportsMarketType,
             'tick_size': tick_size,
-            'orderMinSize': orderMinSize,
+            'order_min_size': orderMinSize,
             'volumeNum': volumeNum,
             'liquidityNum': liquidityNum,
             'volume1wk': volume1wk,
@@ -134,9 +138,9 @@ def sport_json_to_df(mkt_info_dict, sport_type):
             'token1': token1,
             'token2': token2,
             'umaReward': umaReward,
-            'negRisk': negRisk,
-            'rewardsMinSize': rewardsMinSize,
-            'rewardsMaxSpread': rewardsMaxSpread,
+            'neg_risk': negRisk,
+            'min_size': rewardsMinSize,
+            'max_spread': rewardsMaxSpread,
             'holdingRewardsEnabled': holdingRewardsEnabled
         }
     )

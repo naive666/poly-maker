@@ -6,15 +6,13 @@ import os
 def pretty_print(txt, dic):
     print("\n", txt, json.dumps(dic, indent=4))
 
-def get_sheet_df(read_only=None):
+def get_sheet_df(read_only=None, all='All Markets', sel='Selected Markets'):
     """
     Get sheet data with optional read-only mode
     
     Args:
         read_only (bool): If None, auto-detects based on credentials availability
     """
-    all = 'All Markets'
-    sel = 'Selected Markets'
 
     # Auto-detect read-only mode if not specified
     if read_only is None:

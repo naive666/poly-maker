@@ -13,9 +13,10 @@ def update_positions(avgOnly=False):
         if asset in  global_state.positions:
             position = global_state.positions[asset].copy()
         else:
-            position = {'size': 0, 'avgPrice': 0}
+            position = {'size': 0, 'avgPrice': 0, 'market': None}
 
         position['avgPrice'] = row['avgPrice']
+        position['market'] = row['title']
 
         if not avgOnly:
             position['size'] = row['size']
@@ -38,6 +39,7 @@ def update_positions(avgOnly=False):
                         print(f"No trades are pending. Updating position from {old_size} to {row['size']} and avgPrice to {row['avgPrice']} using API")
     
                     position['size'] = row['size']
+
                 else:
                     print(f"ALERT: Skipping update for {asset} because there are trades pending for {col} looking like {global_state.performing[col]}")
     
@@ -48,7 +50,7 @@ def get_position(token):
     if token in global_state.positions:
         return global_state.positions[token]
     else:
-        return {'size': 0, 'avgPrice': 0}
+        return {'size': 0, 'avgPrice': 0, 'market': None}
 
 def set_position(token, side, size, price, source='websocket'):
     token = str(token)
@@ -84,7 +86,8 @@ def set_position(token, side, size, price, source='websocket'):
         global_state.positions[token]['size'] += size
         global_state.positions[token]['avgPrice'] = avgPrice_new
     else:
-        global_state.positions[token] = {'size': size, 'avgPrice': price}
+        global_state.positions[token]['size'] = size
+        global_state.positions[token]['avgPrice'] = price
 
     print(f"Updated position from {source}, set to ", global_state.positions[token])
 
@@ -145,8 +148,8 @@ def set_order(token, side, size, price):
 
     
 
-def update_markets():
-    received_df, received_params = get_sheet_df()
+def update_markets(all='All Markets', sel='Selected Markets'):
+    received_df, received_params = get_sheet_df(all=all, sel=sel)
 
     if len(received_df) > 0:
         global_state.df, global_state.params = received_df.copy(), received_params
