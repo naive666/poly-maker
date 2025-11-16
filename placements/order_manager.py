@@ -1,7 +1,8 @@
 class Order:
-    def __init__(self, token_id, price, size, side, create_time):
+    def __init__(self, token_id, price, tick_size, size, side, create_time):
         self.token_id = token_id
-        self.price = round(price, 5) 
+        self.price = int(price) # price in tick space
+        self.tick_size = tick_size
         self.pending_size = size
         self.fill_size = 0 
         self.side = side 
@@ -28,7 +29,7 @@ class OrderManager:
             print(f"add ask order {order.order_id}")
 
     def add_order_basic(self, order, order_dict):
-        if round(order.price, 5) not in order_dict:
+        if int(order.price) not in order_dict:
             order_dict[order.price] = [order]
         else:
             order_dict[order.price].append(order)
@@ -44,14 +45,14 @@ class OrderManager:
             self.token1_order_cnt -= 1
 
     def delete_order_basic(self, order_id, order_price, order_dict):
-        order_price = round(order_price,5)
+        order_price = int(order_price)
         if order_price in order_dict:
             order_dict[order_price][:] = [o for o in order_dict[order_price] if o.order_id != order_id ]
         else:
             print(f"{order_id} does not exist")
     
     def modify_order(self, order_id, order_price, fill_size, side):
-        order_price = round(order_price,5)
+        order_price = int(order_price)
         if side == 0:
             self.modify_order_basic(order_id, order_price, fill_size, side, self.token0_order_dict)
             print(f"fill on {order_id}")
@@ -60,7 +61,7 @@ class OrderManager:
             print(f"fill on {order_id}")
 
     def modify_order_basic(self, order_id, order_price, fill_size, side, order_dict):
-        order_price = round(order_price,5)
+        order_price = int(order_price)
         # partial fill
         if order_price in order_dict:
             for order in order_dict[order_price]:

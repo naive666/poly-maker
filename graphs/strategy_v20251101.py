@@ -1,4 +1,4 @@
-from base_strategy import BaseStrategy
+from graphs.base_strategy import BaseStrategy
 from poly_data.orderbook import OrderBook 
 import time 
 from datetime import datetime 
@@ -43,6 +43,7 @@ class strategy_202511(BaseStrategy):
             # bid_cum_size += bid_size_i
             if bid_size_i >= self.bbo_size_thred:
                 eff_best_bid_price = bid_price_i
+                break 
         
         for i in range(self.max_level_thred):
             ask_price_i = orderbook.get_price_at_i(i, 1)
@@ -50,6 +51,7 @@ class strategy_202511(BaseStrategy):
             # ask_cum_size += ask_size_i
             if ask_size_i >= self.bbo_size_thred:
                 eff_best_ask_price = ask_price_i
+                break
             
         return eff_best_bid_price, eff_best_ask_price, best_bid_price, best_ask_price
 
@@ -57,7 +59,7 @@ class strategy_202511(BaseStrategy):
         # get the effective best bid and best ask
         eff_best_bid_price, eff_best_ask_price, best_bid_price, best_ask_price = self.get_effective_bbo(orderbook)
         # if eff_best_bid and effect_best_ask has gap larger than 3
-        if (eff_best_ask_price - eff_best_bid_price) >= self.bbo_gap_thred:
+        if (eff_best_ask_price - eff_best_bid_price) <= self.bbo_gap_thred: # should be larger than 3, for debug purpose here
             bid_signal = eff_best_bid_price
             ask_signal = eff_best_ask_price
         else:

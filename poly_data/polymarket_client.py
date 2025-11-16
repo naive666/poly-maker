@@ -20,7 +20,6 @@ from py_clob_client.clob_types import OpenOrderParams
 
 # Smart contract ABIs
 from poly_data.abis import NegRiskAdapterABI, ConditionalTokenABI, erc20_abi
-
 # Load environment variables
 load_dotenv()
 
@@ -62,7 +61,7 @@ class PolymarketClient:
             key=key,
             chain_id=chain_id,
             funder=self.browser_wallet,
-            signature_type=2
+            signature_type=1
         )
 
         # Set up API credentials
@@ -169,7 +168,7 @@ class PolymarketClient:
             float: Total position value in USDC
         """
         res = requests.get(f'https://data-api.polymarket.com/value?user={self.browser_wallet}')
-        return float(res.json()['value'])
+        return float(res.json()[0]['value'])
 
     def get_total_balance(self):
         """
