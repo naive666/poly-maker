@@ -318,3 +318,6 @@ class PolymarketClient:
 
         # Return the transaction hash or output
         return result.stdout
+
+    def get_trades(self, tradeParams):
+        return self.client.get_trades(tradeParams)

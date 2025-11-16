@@ -7,9 +7,13 @@ import threading               # Thread management
 from poly_data.polymarket_client import PolymarketClient
 from poly_data.data_utils import update_markets, update_positions, update_orders
 from poly_data.websocket_handlers import connect_market_websocket, connect_user_websocket
+from poly_data.orderbook import OrderBook
+from placements.order_manager import OrderManager
+from placements.base_placements import BasePlacement
 import poly_data.global_state as global_state
 from poly_data.data_processing import remove_from_performing
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
@@ -93,6 +97,10 @@ async def main():
 
     print("\n")
     print(f'There are {len(global_state.df)} market, {len(global_state.positions)} positions and {len(global_state.orders)} orders. Starting positions: {global_state.positions}')
+    
+    order_manager = OrderManager()
+    bp = BasePlacement('strategy', 'exe_config', 100 ,order_manager)
+    bp.get_pending_orders('0x610880fb46dd51ddd7be1e25a6feb09faf4f3cfd6a6c7c7647c0222dbcf2045a')
 
     # Start background update thread
     update_thread = threading.Thread(target=update_periodically, daemon=True)

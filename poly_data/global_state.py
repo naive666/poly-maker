@@ -44,6 +44,7 @@ last_trade_update = {}
 orders = {}
 
 # Current positions for each token
-# Format: {token_id: {'size': float, 'avgPrice': float}}
+# Format: {token_id: {'size': float, 'avgPrice': float, 'market': str}}
 positions = {}
+position_update_time = None 
 

@@ -108,6 +108,7 @@ def sport_json_to_df(mkt_info_dict, sport_type):
     lastTradePrice = mkt_info_dict.get('lastTradePrice')
     sportsMarketType = mkt_info_dict.get('sportsMarketType')
     holdingRewardsEnabled = mkt_info_dict.get('holdingRewardsEnabled')
+    gameStartTime = mkt_info_dict.get('gameStartTime')
     info_series = pd.Series(
         {
             'sport_type': sport_type,
@@ -141,7 +142,8 @@ def sport_json_to_df(mkt_info_dict, sport_type):
             'neg_risk': negRisk,
             'min_size': rewardsMinSize,
             'max_spread': rewardsMaxSpread,
-            'holdingRewardsEnabled': holdingRewardsEnabled
+            'holdingRewardsEnabled': holdingRewardsEnabled,
+            'gameStartTime': gameStartTime
         }
     )
     return info_series
