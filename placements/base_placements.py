@@ -2,6 +2,7 @@ from graphs.base_strategy import BaseStrategy
 import poly_data.global_state as global_state
 from placements.order_manager import Order, OrderManager
 import time 
+import pandas as pd 
 from datetime import datetime
 from py_clob_client.clob_types import TradeParams
 
@@ -18,17 +19,24 @@ class BasePlacement:
         self.is_max_loss = False
         self.is_pnl = False  
         self.position_update_time_thred = position_update_time_thred 
-        self.bid_submit_price, self.ask_submit_price = 0, 0
-        self.bid_leave_price, self.ask_leave_price = 0, 0
+        self.bid_submit_price, self.ask_submit_price = None, None
+        self.bid_leave_price, self.ask_leave_price = None, None
         self.bid_size, self.ask_size = 0, 0
         self.ok_process_bid = False 
         self.ok_process_ask = False 
         self.asset_pos_dict = {}
+        self.lock = global_state.lock[self.conditional_id]
+        self.eval_cnt = 0
     
-    def run_strategy(self):
-        self.update_pending_orders()
-        self.evaluate_strategy()
+    async def run_strategy(self):
+        if self.eval_cnt % 100 == 0:
+            self.update_pending_orders()
+            self.get_position(self.token0_id)
+            self.get_position(self.token1_id)
         self.check_game_status()
+        self.evaluate_strategy()
+        if self.bid_submit_price is None or self.ask_submit_price is None:
+            return 
         ok_bid_maxpos, ok_ask_maxpos = self.check_max_position()
         ok_bid_pnl, ok_ask_pnl = self.check_pnl()
         bid_submit_price_tick, ask_submit_price_tick = int(self.bid_submit_price / self.tick_size), int(self.ask_submit_price / self.tick_size)
@@ -45,8 +53,8 @@ class BasePlacement:
             if ok_ask_fund and ok_ask_maxpos and ok_ask_pnl and ok_ask_pending: 
                 token1_buy_order = Order(token_id=self.token1_id, price=i, tick_size=self.tick_size, size=self.ask_size, side=1, create_time=datetime.now())
                 self.send_sell_order(token1_buy_order)
-        
         self.merge()
+        
     
     def evaluate_strategy(self):
         pass 
@@ -117,14 +125,16 @@ class BasePlacement:
 
 
     def get_position(self, token_id):
+        pos_df = pd.DataFrame()
         if global_state.position_update_time is None:
             global_state.position_update_time = datetime.now()
-            global_state.positions = global_state.client.get_all_positions()
+            pos_all = global_state.client.get_all_positions() 
+            pos_df = pos_all[pos_all['asset'] == token_id]
         else:
             if (datetime.now() - global_state.position_update_time).total_seconds() > self.position_update_time_thred:
                 global_state.position_update_time = datetime.now()
-                global_state.positions = global_state.client.get_all_positions() 
-        pos_df = global_state.positions[global_state.positions['asset'] == token_id]
+                pos_all = global_state.client.get_all_positions() 
+                pos_df = pos_all[pos_all['asset'] == token_id]
         if len(pos_df) > 0:
             size = pos_df['size']
             avg_price = pos_df['avgPrice']

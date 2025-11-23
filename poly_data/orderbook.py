@@ -10,7 +10,7 @@ class OrderBook:
         self.update_ts = None 
     
     def update_orderbook(self):
-        ob = global_state.client.get_order_book(self.token_id)
+        ob = global_state.orderbook_data[self.token_id]
         self.bid_levels = ob[0].sort_values('price', ascending=False).reset_index(drop=True)
         self.ask_levels = ob[1].sort_values('price', ascending=True).reset_index(drop=True)
         self.update_ts = time.time()
@@ -19,13 +19,13 @@ class OrderBook:
         # side: 0 is bid, 1 is ask
         if side == 0:
             if len(self.bid_levels) > i:
-                return self.bid_levels['price'].iloc[i]
+                return self.bid_levels.index[i]
             else:
                 # if the book is empty
                 return 0
         elif side == 1:
             if len(self.ask_levels) > i:
-                return self.ask_levels['price'].iloc[i] 
+                return self.ask_levels.index[i] 
             else:
                 return 0 
     

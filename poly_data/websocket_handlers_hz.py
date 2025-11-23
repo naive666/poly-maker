@@ -3,10 +3,10 @@ import json                        # JSON handling
 import websockets                  # WebSocket client
 import traceback                   # Exception handling
 
-from poly_data.data_processing import process_data, process_user_data
+from poly_data.data_processing_hz import process_market_data, process_user_data
 import poly_data.global_state as global_state
 
-async def connect_market_websocket(chunk):
+async def connect_market_websocket_hz(chunk):
     """
     Connect to Polymarket's market WebSocket API and process market updates.
     
@@ -37,7 +37,7 @@ async def connect_market_websocket(chunk):
                 message = await websocket.recv()
                 json_data = json.loads(message)
                 # Process order book updates and trigger trading as needed
-                process_data(json_data)
+                await process_market_data(json_data)
         except websockets.ConnectionClosed:
             print("Connection closed in market websocket")
             print(traceback.format_exc())
@@ -46,9 +46,10 @@ async def connect_market_websocket(chunk):
             print(traceback.format_exc())
         finally:
             # Brief delay before attempting to reconnect
+            print("something wrong with connect_market_websocket_hz")
             await asyncio.sleep(5)
 
-async def connect_user_websocket():
+async def connect_user_websocket_hz():
     """
     Connect to Polymarket's user WebSocket API and process order/trade updates.
     
@@ -86,7 +87,7 @@ async def connect_user_websocket():
                 message = await websocket.recv()
                 json_data = json.loads(message)
                 # Process trade and order updates
-                await process_user_data(json_data)
+                process_user_data(json_data)
         except websockets.ConnectionClosed:
             print("Connection closed in user websocket")
             print(traceback.format_exc())
@@ -95,4 +96,5 @@ async def connect_user_websocket():
             print(traceback.format_exc())
         finally:
             # Brief delay before attempting to reconnect
+            print("something wrong with connect_market_websocket_hz")
             await asyncio.sleep(5)

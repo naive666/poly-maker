@@ -1,5 +1,9 @@
 import threading
 import pandas as pd
+from typing import Dict
+from poly_data.orderbook import OrderBook
+from graphs.base_strategy import BaseStrategy
+from placements.base_placements import BasePlacement
 
 # ============ Market Data ============
 
@@ -10,7 +14,7 @@ all_tokens = []
 REVERSE_TOKENS = {}  
 
 # Order book data for all markets
-all_data = {}  
+orderbook_data: Dict[str, OrderBook] = {}  # token_id: orderbook
 
 # Market configuration data from Google Sheets
 df = None  
@@ -23,8 +27,8 @@ client = None
 # Trading parameters from Google Sheets
 params = {}
 
-# Lock for thread-safe trading operations
-lock = threading.Lock()
+# Lock for thread-safe trading operations, {conditiion_id: lock}
+lock = {}
 
 # ============ Trading State ============
 
@@ -48,3 +52,9 @@ orders = {}
 positions = {}
 position_update_time = None 
 
+# strategy dict, key is conditional_id, value is a list consisting of all strategy
+strategy_dict: Dict[str, list[BasePlacement]] = {}
+strategy_list_all: list[BasePlacement] = []
+
+# market token map
+market_token_info: Dict[str, list[str]] = {}  # {conditional_id: [token_id1, token_id2]}

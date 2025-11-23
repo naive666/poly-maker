@@ -15,7 +15,8 @@ class Placement01(BasePlacement):
         
         
     def evaluate_strategy(self):
-        self.strategy.evaluate()
+        if self.strategy.bid_signal is None or self.strategy.ask_signal is None:
+            return
         self.bid_submit_price, self.ask_submit_price = self.strategy.bid_signal, self.strategy.ask_signal
         self.bid_leave_price = self.bid_submit_price - self.config['quote_NLevel'] * self.tick_size
         self.ask_leave_price = self.ask_submit_price + self.config['quote_NLevel'] * self.tick_size

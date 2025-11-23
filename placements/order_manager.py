@@ -13,7 +13,7 @@ class Order:
 
 
 class OrderManager:
-    token0_order_dict = {} # {order_id: Order}
+    token0_order_dict = {} # {order_price tick space: Order}
     token1_order_dict = {}
     token0_order_cnt = 0
     token1_order_cnt = 0

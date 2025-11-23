@@ -2,6 +2,7 @@ from graphs.base_strategy import BaseStrategy
 from poly_data.orderbook import OrderBook 
 import time 
 from datetime import datetime 
+import asyncio
 
 class strategy_202511(BaseStrategy):
     def __init__(self, token_id, order_size, bbo_size_thred, bbo_gap_thred, update_period, max_level_thred):
@@ -14,20 +15,12 @@ class strategy_202511(BaseStrategy):
         self.update_period = update_period # evaluate every N seconds 
         self.last_eval_time = None 
         self.max_level_thred = max_level_thred
-        
 
-    def evaluate(self):
-        if self.last_eval_time is None:
-            self.last_eval_time = datetime.now()
-            self.orderbook.update_orderbook()
-            self.bid_signal, self.ask_signal, best_bid_price, best_ask_price = self.compute_signal(self.orderbook)
-            self.bid_size_signal, self.ask_size_signal = self.order_size, self.order_size
-        else:
-            now = datetime.now()
-            if (now - self.last_eval_time).total_seconds() > self.update_period:
-                # evaluate
-                self.bid_signal, self.ask_signal, best_bid_price, best_ask_price = self.compute_signal(self.orderbook) 
-                self.bid_size_signal, self.ask_size_signal = self.order_size, self.order_size
+    def on_snapshot(self, orderbook:OrderBook):
+        self.bid_signal, self.ask_signal, best_bid_price, best_ask_price = self.compute_signal(orderbook) 
+        self.bid_size_signal, self.ask_size_signal = self.order_size, self.order_size
+ 
+
 
     def get_effective_bbo(self, orderbook):
         # bid_cum_size = 0

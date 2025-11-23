@@ -6,7 +6,7 @@ import threading               # Thread management
 
 from poly_data.polymarket_client import PolymarketClient
 from poly_data.data_utils import update_markets, update_positions, update_orders
-from poly_data.websocket_handlers import connect_market_websocket, connect_user_websocket
+from poly_data.websocket_handlers_hz import connect_market_websocket_hz, connect_user_websocket_hz
 from poly_data.orderbook import OrderBook
 from placements.order_manager import OrderManager
 from placements.base_placements import BasePlacement
@@ -19,13 +19,35 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def update_once(all='Full Sports Markets', sel='Selected Sports Markets'):
+def update_once(all='Full Sports Markets', sel='Selected Sports Markets', graph_update_period=10, max_level_thred=20):
     """
     Initialize the application state by fetching market data, positions, and orders.
     """
     update_markets(all=all, sel=sel)    # Get market information from Google Sheets
     update_positions()  # Get current positions from Polymarket
     update_orders()     # Get current orders from Polymarket
+    for idx, row in global_state.df.iterrows():
+        token_id = row['token1']
+        token2_id = row['token2']
+        conditional_id = row['condition_id']
+        order_size = row['trade_size']
+        bbo_size_thred = row['bbo_size_thred']
+        bbo_gap_thred = row['bbo_gap_thred']
+        quote_NLevel = row['quote_NLevel']
+        max_pos = row['max_pos']
+        single_pos_percent = row['single_pos_percent']
+        maxloss = row['maxloss']
+        position_update_time_thred = 5
+        global_state.lock[conditional_id] = asyncio.Lock()
+        order_manager = OrderManager()
+        update_period = graph_update_period
+        max_level_thred = max_level_thred
+        exe_config = {'quote_NLevel': quote_NLevel, 'max_pos':max_pos, 'single_pos_percent':single_pos_percent, 'maxloss': maxloss}
+        strategy = strategy_202511(token_id, order_size, bbo_size_thred, bbo_gap_thred, update_period, max_level_thred)
+        placement = Placement01( token_id, token2_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager)
+        global_state.strategy_dict[conditional_id] = [placement]
+        global_state.market_token_info[conditional_id] = [token_id, token2_id]
+        global_state.strategy_list_all += global_state.strategy_dict[conditional_id]
 
 
 def update_periodically(all='Full Sports Markets', sel='Selected Sports Markets'):
@@ -56,7 +78,14 @@ def update_periodically(all='Full Sports Markets', sel='Selected Sports Markets'
         except:
             print("Error in update_periodically")
             print(traceback.format_exc())
-            
+
+
+async def strategy_loop(placement:BasePlacement, interval: float = 1):
+    while True:
+        await placement.run_strategy()
+        await asyncio.sleep(interval)  
+
+
 async def main():
     """
     Main application entry point. Initializes client, data, and manages websocket connections.
@@ -75,38 +104,26 @@ async def main():
     print("\n")
     print(f'There are {len(global_state.df)} market, {len(global_state.positions)} positions and {len(global_state.orders)} orders. Starting positions: {global_state.positions}')
     
-
-    token_id = global_state.df['token1'].iloc[0]
-    token2_id = global_state.df['token2'].iloc[0]
-    conditional_id = global_state.df['condition_id'].iloc[0]
-    order_size = global_state.df['trade_size'].iloc[0]
-    bbo_size_thred = global_state.df['bbo_size_thred'].iloc[0]
-    bbo_gap_thred = global_state.df['bbo_gap_thred'].iloc[0]
-    quote_NLevel = global_state.df['quote_NLevel'].iloc[0]
-    max_pos = global_state.df['max_pos'].iloc[0]
-    single_pos_percent = global_state.df['single_pos_percent'].iloc[0]
-    maxloss = global_state.df['maxloss'].iloc[0]
-    position_update_time_thred = 5
-    order_manager = OrderManager()
-    update_period = 10
-    max_level_thred = 10
-    exe_config = {'quote_NLevel': quote_NLevel, 'max_pos':max_pos, 'single_pos_percent':single_pos_percent, 'maxloss': maxloss}
-    strategy = strategy_202511(token_id, order_size, bbo_size_thred, bbo_gap_thred, update_period, max_level_thred)
-    placement = Placement01( token_id, token2_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager)
+    
     
     # order_manager = OrderManager()
     # bp = BasePlacement('strategy', 'exe_config', 100 ,order_manager)
     # bp.get_pending_orders('0x610880fb46dd51ddd7be1e25a6feb09faf4f3cfd6a6c7c7647c0222dbcf2045a')
 
     # Start background update thread
-    update_thread = threading.Thread(target=update_periodically, daemon=True) # update_periodically will cancel the order the exist too long, but our local code will not
-    update_thread.start()
+    # update_thread = threading.Thread(target=update_periodically, daemon=True) # update_periodically will cancel the order the exist too long, but our local code will not
+    # update_thread.start()
     
     # Main loop - maintain websocket connections
     while True:
-        placement.run_strategy()
+        await asyncio.gather(
+                connect_market_websocket_hz(global_state.all_tokens),
+                connect_user_websocket_hz(),
+                *(strategy_loop(s,1) for s in global_state.strategy_list_all),
+            )
+        # placement.run_strategy()
             
-        time.sleep(5)
+        await asyncio.sleep(5)  
         gc.collect()  # Clean up memory
 
 if __name__ == "__main__":
