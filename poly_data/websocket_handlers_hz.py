@@ -23,7 +23,7 @@ async def connect_market_websocket_hz(chunk):
         attempt to reconnect after a short delay.
     """
     uri = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
-    async with websockets.connect(uri, ping_interval=5, ping_timeout=None) as websocket:
+    async with websockets.connect(uri, ping_interval=5, ping_timeout=None, open_timeout=30) as websocket:
         # Prepare and send subscription message
         message = {"assets_ids": chunk}
         await websocket.send(json.dumps(message))
@@ -64,7 +64,7 @@ async def connect_user_websocket_hz():
     """
     uri = "wss://ws-subscriptions-clob.polymarket.com/ws/user"
 
-    async with websockets.connect(uri, ping_interval=5, ping_timeout=None) as websocket:
+    async with websockets.connect(uri, ping_interval=5, ping_timeout=None, open_timeout=30) as websocket:
         # Prepare authentication message with API credentials
         message = {
             "type": "user",
@@ -87,7 +87,7 @@ async def connect_user_websocket_hz():
                 message = await websocket.recv()
                 json_data = json.loads(message)
                 # Process trade and order updates
-                process_user_data(json_data)
+                await process_user_data(json_data)
         except websockets.ConnectionClosed:
             print("Connection closed in user websocket")
             print(traceback.format_exc())
@@ -96,5 +96,5 @@ async def connect_user_websocket_hz():
             print(traceback.format_exc())
         finally:
             # Brief delay before attempting to reconnect
-            print("something wrong with connect_market_websocket_hz")
+            print("something wrong with connect_user_websocket_hz")
             await asyncio.sleep(5)

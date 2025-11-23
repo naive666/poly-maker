@@ -1,40 +1,49 @@
 from graphs.base_strategy import BaseStrategy
 import poly_data.global_state as global_state
 from placements.order_manager import Order, OrderManager
-import time 
+import time, asyncio
 import pandas as pd 
+from typing import Dict
 from datetime import datetime
+from decimal import Decimal
 from py_clob_client.clob_types import TradeParams
 
 class BasePlacement:
-    def __init__(self, token0_id, token1_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager:OrderManager):
-        self.tick_size = global_state.df[global_state.df['condition_id'] == conditional_id]['tick_size'].iloc[0]
-        self.token0_id = token0_id
-        self.token1_id = token1_id 
-        self.conditional_id = conditional_id
-        self.config = exe_config
-        self.strategy = strategy
-        self.om = order_manager
-        self.is_game_status = False 
-        self.is_max_loss = False
-        self.is_pnl = False  
-        self.position_update_time_thred = position_update_time_thred 
-        self.bid_submit_price, self.ask_submit_price = None, None
-        self.bid_leave_price, self.ask_leave_price = None, None
-        self.bid_size, self.ask_size = 0, 0
-        self.ok_process_bid = False 
-        self.ok_process_ask = False 
-        self.asset_pos_dict = {}
-        self.lock = global_state.lock[self.conditional_id]
-        self.eval_cnt = 0
+    def __init__(self, token0_id:str, token1_id:str, conditional_id:str, strategy:BaseStrategy, exe_config:Dict, position_update_time_thred:Decimal, 
+                 order_manager:OrderManager):
+        self.tick_size:Decimal = Decimal(global_state.df[global_state.df['condition_id'] == conditional_id]['tick_size'].iloc[0])
+        self.token0_id:str = token0_id
+        self.token1_id:str = token1_id 
+        self.conditional_id:str = conditional_id
+        self.config:Dict = exe_config
+        self.strategy:BaseStrategy = strategy
+        self.om:OrderManager = order_manager
+        self.is_game_status:bool = False 
+        self.is_max_loss:bool = False
+        self.is_pnl:bool = False  
+        self.position_update_time_thred:Decimal = position_update_time_thred 
+        self.bid_submit_price: Decimal = None  
+        self.ask_submit_price:Decimal =  None
+        self.bid_leave_price:Decimal = None  
+        self.ask_leave_price:Decimal = None
+        self.bid_size:Decimal = 0 
+        self.ask_size:Decimal = 0
+        self.ok_process_bid:bool = False 
+        self.ok_process_ask:bool = False 
+        self.asset_pos_dict:Dict[str, Dict[str, Decimal]] = {}
+        self.lock:asyncio.Lock = global_state.lock[self.conditional_id]
+        self.eval_cnt:int = 0
+        self.market = global_state.market_token_info[self.conditional_id][2]
     
     async def run_strategy(self):
-        if self.eval_cnt % 100 == 0:
+        self.eval_cnt += 1
+        if self.eval_cnt % 10 == 1:
             self.update_pending_orders()
             self.get_position(self.token0_id)
             self.get_position(self.token1_id)
         self.check_game_status()
         self.evaluate_strategy()
+        self.merge()
         if self.bid_submit_price is None or self.ask_submit_price is None:
             return 
         ok_bid_maxpos, ok_ask_maxpos = self.check_max_position()
@@ -45,15 +54,18 @@ class BasePlacement:
             ok_bid_fund = self.check_available_fund(self.tick_size*i, self.bid_size)
             ok_bid_pending, _ = self.check_pending_order(i, 0)
             if ok_bid_fund and ok_bid_maxpos and ok_bid_pnl and ok_bid_pending: 
-                token0_buy_order = Order(token_id=self.token0_id, price=i, tick_size=self.tick_size, size=self.bid_size, side=0, create_time=datetime.now())
+                token0_buy_order = Order(token_id=self.token0_id, price=i, tick_size=self.tick_size, size=self.bid_size, 
+                                         side=0, create_time=datetime.now(), market=self.market)
                 self.send_buy_order(token0_buy_order)
         for i in range(ask_submit_price_tick, ask_leave_price_tick, 1):
             ok_ask_fund = self.check_available_fund(self.tick_size*i, self.ask_size)
             _, ok_ask_pending = self.check_pending_order(i, 1)
             if ok_ask_fund and ok_ask_maxpos and ok_ask_pnl and ok_ask_pending: 
-                token1_buy_order = Order(token_id=self.token1_id, price=i, tick_size=self.tick_size, size=self.ask_size, side=1, create_time=datetime.now())
+                token1_buy_order = Order(token_id=self.token1_id, price=i, tick_size=self.tick_size, size=self.ask_size, 
+                                         side=1, create_time=datetime.now(), market=self.market)
                 self.send_sell_order(token1_buy_order)
-        self.merge()
+        
+        
         
     
     def evaluate_strategy(self):
@@ -65,7 +77,7 @@ class BasePlacement:
     def check_max_position(self):
         pass 
 
-    def check_pending_order(self, price, side):
+    def check_pending_order(self, price:int, side:int):
         price = int(price)
         ok_pending_order_bid, ok_pending_order_ask = True, True
         if side == 0:
@@ -83,7 +95,7 @@ class BasePlacement:
     def check_game_status(self):
         pass 
 
-    def check_available_fund(self, price, size):
+    def check_available_fund(self, price:Decimal, size:Decimal):
         pass 
         
     def update_pending_orders(self):
@@ -102,7 +114,8 @@ class BasePlacement:
                 else:
                     print('reconnect, update pending order for bid side')
                     # in case we have to reconnect and lose all local info
-                    order = Order(token_id=self.token0_id, price=price, tick_size=self.tick_size, size=self.bid_size, side=0, create_time=row['created_at'])
+                    order = Order(token_id=self.token0_id, price=price, tick_size=self.tick_size, size=self.bid_size, 
+                                  side=0, create_time=row['created_at'], market=self.market)
                     order.order_id = row['order_id']
                     self.om.add_order(order)
 
@@ -118,30 +131,25 @@ class BasePlacement:
                 else:
                     print('reconnect, update pending order for ask side')
                     # in case we have to reconnect and lose all local info
-                    order = Order(token_id=self.token0_id, price=price, tick_size=self.tick_size, size=self.bid_size, side=1, create_time=row['created_at'])
+                    order = Order(token_id=self.token0_id, price=price, tick_size=self.tick_size, size=self.bid_size, 
+                                  side=1, create_time=row['created_at'], market=self.market)
                     order.order_id = row['order_id']
                     self.om.add_order(order)
         return order_df
 
 
-    def get_position(self, token_id):
-        pos_df = pd.DataFrame()
-        if global_state.position_update_time is None:
-            global_state.position_update_time = datetime.now()
-            pos_all = global_state.client.get_all_positions() 
-            pos_df = pos_all[pos_all['asset'] == token_id]
-        else:
-            if (datetime.now() - global_state.position_update_time).total_seconds() > self.position_update_time_thred:
-                global_state.position_update_time = datetime.now()
-                pos_all = global_state.client.get_all_positions() 
-                pos_df = pos_all[pos_all['asset'] == token_id]
+    def get_position(self, token_id:str):
+        pos_df = pd.DataFrame()                 
+        global_state.position_update_time = datetime.now()
+        pos_all = global_state.client.get_all_positions() 
+        pos_df = pos_all[pos_all['asset'] == token_id]
         if len(pos_df) > 0:
-            size = pos_df['size']
-            avg_price = pos_df['avgPrice']
-            cashPnl = pos_df['cashPnl']
-            initial_value = pos_df['initialValue']
-            current_value = pos_df['currentValue']
-            pos_dict = {'size': size, 'avg_price': avg_price, 'cashPnl': cashPnl, 'initial_value': initial_value, 'current_value': current_value}
+            size = Decimal(pos_df['size'].values[0])
+            avg_price = Decimal(pos_df['avgPrice'].values[0])
+            cashPnl = Decimal(pos_df['cashPnl'].values[0])
+            initial_value = Decimal(pos_df['initialValue'].values[0])
+            current_value = Decimal(pos_df['currentValue'].values[0])
+            pos_dict = {'size': size, 'avg_price': avg_price, 'cashPnl': cashPnl, 'initialValue': initial_value, 'currentValue': current_value}
             self.asset_pos_dict[token_id] = pos_dict 
     
 
@@ -170,23 +178,23 @@ class BasePlacement:
                     existing_buy_size == 0  # Cancel if no existing buy order
                 )
         
-            if should_cancel and existing_buy_size > 0:
-                print(f"Cancelling buy orders - price diff: {price_diff:.4f}, size diff: {size_diff:.1f}")
-                for o in order_list:
-                    client.cancel_order(o.order_id)
-                    self.om.delete_order(order_id=o.order_id, order_price=o.price, side=0)
-            elif not should_cancel:
-                print(f"Keeping existing buy orders - minor changes: price diff: {price_diff:.4f}, size diff: {size_diff:.1f}")
-                return  # Don't place new order if existing one is fine
+                if should_cancel and existing_buy_size > 0:
+                    print(f"Cancelling buy orders - price diff: {price_diff:.4f}, size diff: {size_diff:.1f}")
+                    for o in order_list:
+                        client.cancel_order(o.order_id)
+                        self.om.delete_order(order_id=o.order_id, order_price=o.price, side=0)
+                elif not should_cancel:
+                    print(f"Keeping existing buy orders - minor changes: price diff: {price_diff:.4f}, size diff: {size_diff:.1f}")
+                    return  # Don't place new order if existing one is fine
 
         
         # Only place orders with prices between 0.1 and 0.9 to avoid extreme positions
-        print(f'Creating new buy order for {order.pending_size} at {order.price}')
+        print(f'Creating new buy order for {order.market}, size: {order.pending_size}, price: {order.price}')
         order_id = client.create_order(
             order.token_id, 
             'BUY', 
-            order.price * order.tick_size, 
-            order.pending_size
+            float(order.price * order.tick_size), 
+            float(order.pending_size)
         )
         order.order_id = order_id
         self.om.add_order(order)
@@ -219,23 +227,23 @@ class BasePlacement:
                     existing_ask_size == 0  # Cancel if no existing buy order
                 )
         
-            if should_cancel and existing_ask_size > 0:
-                print(f"Cancelling buy orders - price diff: {price_diff:.4f}, size diff: {size_diff:.1f}")
-                for o in order_list:
-                    client.cancel_order(o.order_id)
-                    self.om.delete_order(order_id=o.order_id, order_price=o.price, side=1)
-            elif not should_cancel:
-                print(f"Keeping existing buy orders - minor changes: price diff: {price_diff:.4f}, size diff: {size_diff:.1f}")
-                return  # Don't place new order if existing one is fine
+                if should_cancel and existing_ask_size > 0:
+                    print(f"Cancelling buy orders - price diff: {price_diff:.4f}, size diff: {size_diff:.1f}")
+                    for o in order_list:
+                        client.cancel_order(o.order_id)
+                        self.om.delete_order(order_id=o.order_id, order_price=o.price, side=1)
+                elif not should_cancel:
+                    print(f"Keeping existing buy orders - minor changes: price diff: {price_diff:.4f}, size diff: {size_diff:.1f}")
+                    return  # Don't place new order if existing one is fine
 
         
         # Only place orders with prices between 0.1 and 0.9 to avoid extreme positions
-        print(f'Creating new buy order for {order.pending_size} at {order.price}')
+        print(f'Creating new sell order for {order.market}, size: {order.pending_size}, price: {order.price}')
         order_id = client.create_order(
             order.token_id, 
             'BUY', 
-            order.price * order.tick_size, 
-            order.pending_size
+            float(order.price * order.tick_size), 
+            float(order.pending_size)
         )
         order.order_id = order_id
         self.om.add_order(order)
@@ -245,7 +253,7 @@ class BasePlacement:
     def cancel_order_id(self, order_id):
         global_state.client.cancel_order(order_id)
 
-    def cancel_order(self, side):
+    def cancel_order(self, side:int):
         if side == 0:
             for prc, order_list in self.om.token0_order_dict.items():
                 if prc < self.bid_leave_price:
@@ -268,15 +276,15 @@ class BasePlacement:
             pos0 = self.asset_pos_dict[self.token0_id]['size']
             pos1 = self.asset_pos_dict[self.token1_id]['size']
             if pos0 < pos1:
-                global_state.client.merge_positions(pos0, self.condition_id, False)
+                global_state.client.merge_positions(pos0, self.conditional_id, False)
                 del self.asset_pos_dict[self.token0_id]
                 print(f"Merge {pos0}, {self.token0_id} has pos 0, {self.token1_id} has pos {pos1 - pos0}")
             elif pos0 > pos1:
-                global_state.client.merge_positions(pos1, self.condition_id, False)
+                global_state.client.merge_positions(pos1, self.conditional_id, False)
                 del self.asset_pos_dict[self.token1_id]
                 print(f"Merge {pos1}, {self.token1_id} has pos 0, {self.token0_id} has pos {pos0 - pos1}")
             else:
-                global_state.client.merge_positions(pos0, self.condition_id, False)
+                global_state.client.merge_positions(pos0, self.conditional_id, False)
                 del self.asset_pos_dict[self.token0_id]
                 del self.asset_pos_dict[self.token1_id]
                 print(f"Merge {pos1}, {self.token1_id} has pos 0, {self.token0_id} has pos {pos0 - pos1}")

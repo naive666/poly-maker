@@ -65,33 +65,39 @@ def process_price_change_hz(asset_id, side, price_level, new_size):
 async def process_indiv_market_data(json_data):
     event_type = json_data['event_type']
     market = json_data['market']
-    asset_strat_list = global_state.strategy_dict[json_data['market']]
+    asset_strat_list = global_state.strategy_dict[market]
+    token_id_list = global_state.market_token_info[market]
     lock = global_state.lock[json_data['market']]
     async with lock:
         if event_type == 'book':
-            process_book_data_hz(json_data)
-            # on_book_change
-            for placement in asset_strat_list:
-                placement.eval_cnt += 1
-                placement.strategy.on_snapshot(global_state.orderbook_data[json_data['asset_id']] )
+            if json_data['asset_id'] == token_id_list[0]:
+                process_book_data_hz(json_data)
+                # on_book_change
+                for placement in asset_strat_list:
+                    # placement.eval_cnt += 1
+                    placement.strategy.on_snapshot(global_state.orderbook_data[json_data['asset_id']] )
                 
         elif event_type == 'price_change':
             for data in json_data['price_changes']:
+                print('xxxx')
+                if data['asset_id'] == token_id_list[1]:  # only update token1
+                    continue
                 side = 'bids' if data['side'] == 'BUY' else 'asks'
                 asset_id = data['asset_id']
                 price_level = Decimal(data['price'])
                 new_size = Decimal(data['size'])
                 process_price_change_hz(asset_id, side, price_level, new_size)
                 for placement in asset_strat_list:
-                    placement.eval_cnt += 1
+                    # placement.eval_cnt += 1
                     placement.strategy.on_book_change( price_level, new_size, side )
             
         elif event_type == 'last_trade_price':
-            trade_info = TradeSummary(json_data['asset_id'], json_data['event_type'], json_data['fee_rate_bps'], json_data['market'], 
-                                    Decimal(json_data['price']), json_data['side'], Decimal(json_data['size']), int(json_data['timestamp']))
-            for placement in asset_strat_list:
-                placement.eval_cnt += 1
-                placement.strategy.on_trade(trade_info)
+            if json_data['asset_id'] == token_id_list[0]: 
+                trade_info = TradeSummary(json_data['asset_id'], json_data['event_type'], json_data['fee_rate_bps'], json_data['market'], 
+                                        Decimal(json_data['price']), json_data['side'], Decimal(json_data['size']), int(json_data['timestamp']))
+                for placement in asset_strat_list:
+                    # placement.eval_cnt += 1
+                    placement.strategy.on_trade(trade_info)
 
 
 async def process_market_data(json_datas):
@@ -103,6 +109,9 @@ async def process_market_data(json_datas):
         tasks.append(process_indiv_market_data(json_datas))
     await asyncio.gather(*tasks)
 
+#DEBUG
+# mkt1: 3e75, asset_id: 0369
+# mkt2: 0066, asset_id: 6643
 # async def process_market_data(json_datas):
 #     for json_data in json_datas:
 #         asyncio.create_task(process_indiv_market_data(json_data))
@@ -123,7 +132,7 @@ async def process_indiv_user_data(json_data):
             return 
         if event_type == 'trade':
             for placement in asset_strat_list:
-                placement.eval_cnt += 1
+                # placement.eval_cnt += 1
                 order_manager = placement.om
                 tick_size = placement.tick_size
                 if asset_id == market_info[0]:

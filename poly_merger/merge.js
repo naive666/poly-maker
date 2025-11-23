@@ -87,6 +87,24 @@ async function mergePositions(amountToMerge, conditionId, isNegRiskMarket) {
       );
     }
 
+    const transaction = {
+      ...tx,
+      chainId: 137,
+      gasPrice,
+      gasLimit,
+      nonce,
+    };
+
+    console.log("Sending transaction directly from wallet:", wallet.address);
+    const txResponse = await wallet.sendTransaction(transaction);
+
+    console.log("Sent transaction. Waiting for response");
+    const txReceipt = await txResponse.wait();
+
+    console.log("merge positions " + txReceipt.transactionHash);
+    return txReceipt.transactionHash;
+
+    /* Original Version
     // Prepare full transaction object
     const transaction = {
       ...tx,
@@ -118,6 +136,7 @@ async function mergePositions(amountToMerge, conditionId, isNegRiskMarket) {
     
     console.log("merge positions " + txReceipt.transactionHash);
     return txReceipt.transactionHash;
+    */
 }
 
 // Parse command line arguments

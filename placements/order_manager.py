@@ -1,22 +1,25 @@
+from decimal import Decimal
+from typing import Dict
 class Order:
-    def __init__(self, token_id, price, tick_size, size, side, create_time):
-        self.token_id = token_id
-        self.price = int(price) # price in tick space
-        self.tick_size = tick_size
-        self.pending_size = size
-        self.fill_size = 0 
-        self.side = side 
-        self.status = 'new' 
-        self.order_id = None 
-        self.create_time = create_time
+    def __init__(self, token_id:str, price:int, tick_size:Decimal, size:Decimal, side:int, create_time:int, market:str=None,):
+        self.token_id:str = token_id
+        self.market:str = market
+        self.price:int = int(price) # price in tick space
+        self.tick_size:Decimal = tick_size
+        self.pending_size:Decimal = size
+        self.fill_size:Decimal = 0 
+        self.side:int = side 
+        self.status:str = 'new' 
+        self.order_id:str = None 
+        self.create_time:int = create_time
 
 
 
 class OrderManager:
-    token0_order_dict = {} # {order_price tick space: Order}
-    token1_order_dict = {}
-    token0_order_cnt = 0
-    token1_order_cnt = 0
+    token0_order_dict:Dict[int, Order]  = {} # {order_price tick space: Order}
+    token1_order_dict:Dict[int, Order] = {}
+    token0_order_cnt:int = 0
+    token1_order_cnt:int = 0
 
     def add_order(self, order:Order):
         if order.side == 0:
@@ -28,13 +31,13 @@ class OrderManager:
             self.token1_order_cnt += 1
             print(f"add ask order {order.order_id}")
 
-    def add_order_basic(self, order, order_dict):
+    def add_order_basic(self, order:Order, order_dict:Dict[int, Order]):
         if int(order.price) not in order_dict:
             order_dict[order.price] = [order]
         else:
             order_dict[order.price].append(order)
     
-    def delete_order(self, order_id, order_price, side):
+    def delete_order(self, order_id:str, order_price:int, side:int):
         if side == 0:
             self.delete_order_basic(order_id, order_price, self.token0_order_dict) 
             print(f"cancel order {order_id}")
@@ -44,14 +47,14 @@ class OrderManager:
             print(f"cancel order {order_id}")
             self.token1_order_cnt -= 1
 
-    def delete_order_basic(self, order_id, order_price, order_dict):
+    def delete_order_basic(self, order_id:str, order_price:int, order_dict:Dict[int, Order]):
         order_price = int(order_price)
         if order_price in order_dict:
             order_dict[order_price][:] = [o for o in order_dict[order_price] if o.order_id != order_id ]
         else:
             print(f"{order_id} does not exist")
     
-    def modify_order(self, order_id, order_price, fill_size, side):
+    def modify_order(self, order_id:str, order_price:int, fill_size:Decimal, side:int):
         order_price = int(order_price)
         if side == 0:
             self.modify_order_basic(order_id, order_price, fill_size, side, self.token0_order_dict)
@@ -60,7 +63,7 @@ class OrderManager:
             self.modify_order_basic(order_id, order_price, fill_size, side, self.token1_order_dict)
             print(f"fill on {order_id}")
 
-    def modify_order_basic(self, order_id, order_price, fill_size, side, order_dict):
+    def modify_order_basic(self, order_id:str, order_price:int, fill_size:Decimal, side:int, order_dict:Dict[int, Order]):
         order_price = int(order_price)
         # partial fill
         if order_price in order_dict:

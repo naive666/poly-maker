@@ -2,6 +2,7 @@ from graphs.base_strategy import BaseStrategy
 import poly_data.global_state as global_state
 from placements.order_manager import Order, OrderManager
 import time 
+from decimal import Decimal
 from dateutil.parser import isoparse
 from datetime import datetime
 from py_clob_client.clob_types import TradeParams
@@ -41,7 +42,7 @@ class Placement01(BasePlacement):
         if not self.token0_id in self.asset_pos_dict:
             ok_process_bid = True
         else:
-            pos0 = self.asset_pos_dict[self.token0_id]['size']
+            pos0 = Decimal(self.asset_pos_dict[self.token0_id]['size'])
             if pos0 + self.bid_size <= self.config['max_pos']:
                 ok_process_bid = True
                 print(f"check {self.token0_id} max pos success")
@@ -55,7 +56,7 @@ class Placement01(BasePlacement):
         if not self.token1_id in self.asset_pos_dict:
             ok_process_ask = True 
         else:
-            pos1 = self.asset_pos_dict[self.token1_id]['size']
+            pos1 = Decimal(self.asset_pos_dict[self.token1_id]['size'])
             if pos1 + self.ask_size <= self.config['max_pos']:
                 ok_process_ask = True
                 print(f"check {self.token0_id} max pos success")
@@ -68,11 +69,11 @@ class Placement01(BasePlacement):
                 print(f"check {self.token0_id} max pos fail")
         return ok_process_bid, ok_process_ask
     
-    def check_available_fund(self, price, size):
+    def check_available_fund(self, price:Decimal, size:Decimal):
         ok_process = False
         # get current available margin
-        cash_balance = global_state.client.get_usdc_balance()
-        total_balance = global_state.client.get_total_balance()
+        cash_balance = Decimal(global_state.client.get_usdc_balance())
+        total_balance = Decimal(global_state.client.get_total_balance())
         quote_cash = price * size
         if quote_cash < total_balance * self.config['single_pos_percent'] and quote_cash < cash_balance:
             print("Check available fund success")
