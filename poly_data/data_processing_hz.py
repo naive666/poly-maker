@@ -12,8 +12,8 @@ from poly_data.trade_summary import TradeSummary
 from poly_data.orderbook import OrderBook
 from poly_data.data_utils import set_position, set_order, update_positions
 from placements.base_placements import BasePlacement
-
-
+import logging
+logger = logging.getLogger("polymarket_bot")
 
 def process_book_data_hz(json_data):
     if json_data['asset_id'] not in global_state.orderbook_data:
@@ -72,6 +72,9 @@ async def process_indiv_market_data(json_data):
         if event_type == 'book':
             if json_data['asset_id'] == token_id_list[0]:
                 process_book_data_hz(json_data)
+                log_str = f"{market} on_snapshot update"
+                print(log_str)
+                logger.info(log_str)
                 # on_book_change
                 for placement in asset_strat_list:
                     # placement.eval_cnt += 1
@@ -79,13 +82,16 @@ async def process_indiv_market_data(json_data):
                 
         elif event_type == 'price_change':
             for data in json_data['price_changes']:
-                print('xxxx')
+                # print('xxxx')
                 if data['asset_id'] == token_id_list[1]:  # only update token1
                     continue
                 side = 'bids' if data['side'] == 'BUY' else 'asks'
                 asset_id = data['asset_id']
                 price_level = Decimal(data['price'])
                 new_size = Decimal(data['size'])
+                log_str = f"{market} on_book update"
+                print(log_str)
+                logger.info(log_str)
                 process_price_change_hz(asset_id, side, price_level, new_size)
                 for placement in asset_strat_list:
                     # placement.eval_cnt += 1
@@ -95,6 +101,9 @@ async def process_indiv_market_data(json_data):
             if json_data['asset_id'] == token_id_list[0]: 
                 trade_info = TradeSummary(json_data['asset_id'], json_data['event_type'], json_data['fee_rate_bps'], json_data['market'], 
                                         Decimal(json_data['price']), json_data['side'], Decimal(json_data['size']), int(json_data['timestamp']))
+                log_str = f"{market} last_trade_price update"
+                print(log_str)
+                logger.info(log_str)
                 for placement in asset_strat_list:
                     # placement.eval_cnt += 1
                     placement.strategy.on_trade(trade_info)
@@ -109,26 +118,23 @@ async def process_market_data(json_datas):
         tasks.append(process_indiv_market_data(json_datas))
     await asyncio.gather(*tasks)
 
-#DEBUG
-# mkt1: 3e75, asset_id: 0369
-# mkt2: 0066, asset_id: 6643
-# async def process_market_data(json_datas):
-#     for json_data in json_datas:
-#         asyncio.create_task(process_indiv_market_data(json_data))
-        
 
+        
 async def process_indiv_user_data(json_data):
     conditional_id = json_data['market']
     side = json_data['side'].lower()
     asset_id = json_data['asset_id']
     event_type = json_data['event_type']
+    market = json_data['market']
     asset_strat_list = global_state.strategy_dict[json_data['market']]
     lock = global_state.lock[json_data['market']]
     async with lock:
         if conditional_id in global_state.market_token_info:
             market_info = global_state.market_token_info[conditional_id] 
         else:
-            print("Market is not register")
+            log_str = f"{market} is not register"
+            print(log_str)
+            logger.info(log_str)
             return 
         if event_type == 'trade':
             for placement in asset_strat_list:
@@ -138,17 +144,21 @@ async def process_indiv_user_data(json_data):
                 if asset_id == market_info[0]:
                     if json_data['status'] == 'CONFIRMED':
                         for maker_order in json_data['maker_orders']:
-                            fill_price = int(float(maker_order['price']) / tick_size)
+                            fill_price = round(float(maker_order['price']) / tick_size)
                             fill_size = maker_order['size']
-                            print(f"token 1 is filled at price {fill_price}, size {fill_size}")
                             order_id = maker_order['order_id']
+                            log_str = f"{market} token 0 is filled at price {fill_price}, size {fill_size}"
+                            print(log_str)
+                            logger.info(log_str)
                             order_manager.modify_order(order_id, fill_price, fill_size, 0)
                 elif asset_id == market_info[1]:
                     if json_data['status'] == 'CONFIRMED':
                         for maker_order in json_data['maker_orders']:
-                            fill_price = int(float(maker_order['price']) / tick_size)
+                            fill_price = round(float(maker_order['price']) / tick_size)
                             fill_size = maker_order['size']
-                            print(f"token 2 is filled at price {fill_price}, size {fill_size}")
+                            log_str = f"{market} token 0 is filled at price {fill_price}, size {fill_size}"
+                            print(log_str)
+                            logger.info(log_str)
                             order_id = maker_order['order_id']
                             order_manager.modify_order(order_id, fill_price, fill_size, 1)
         elif event_type == 'order':

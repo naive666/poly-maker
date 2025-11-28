@@ -279,7 +279,25 @@ class PolymarketClient:
         """
         self.client.cancel_market_orders(market=marketId)
 
-    
+    def cancel_order(self, order_id):
+        """
+        Cancel order iby orderId.
+        
+        Args:
+            marketId (str): Market ID
+        """
+        self.client.cancel(order_id)
+
+    def cancel_orders(self, order_ids):
+        """
+        Cancel order iby orderIds.
+        
+        Args:
+            marketId (str): Market ID
+        """
+        self.client.cancel_orders(order_ids)
+
+
     def merge_positions(self, amount_to_merge, condition_id, is_neg_risk_market):
         """
         Merge positions in a market to recover collateral.

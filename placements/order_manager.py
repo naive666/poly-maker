@@ -16,10 +16,11 @@ class Order:
 
 
 class OrderManager:
-    token0_order_dict:Dict[int, Order]  = {} # {order_price tick space: Order}
-    token1_order_dict:Dict[int, Order] = {}
-    token0_order_cnt:int = 0
-    token1_order_cnt:int = 0
+    def __init__(self):
+        self.token0_order_dict:Dict[int, Order]  = {} # {order_price tick space: Order}
+        self.token1_order_dict:Dict[int, Order] = {}
+        self.token0_order_cnt:int = 0
+        self.token1_order_cnt:int = 0
 
     def add_order(self, order:Order):
         if order.side == 0:

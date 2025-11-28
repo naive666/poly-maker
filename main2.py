@@ -15,6 +15,7 @@ from graphs.strategy_v20251101 import strategy_202511
 import poly_data.global_state as global_state
 from poly_data.data_processing import remove_from_performing
 from dotenv import load_dotenv
+from logging_setup import setup_logger
 
 
 load_dotenv()
@@ -83,8 +84,17 @@ def update_periodically(all='Full Sports Markets', sel='Selected Sports Markets'
 
 async def strategy_loop(placement:BasePlacement, interval: float = 1):
     while True:
-        await placement.run_strategy()
-        await asyncio.sleep(interval)  
+        try:
+            async with placement.lock:
+                await placement.run_strategy()
+        except Exception as e:
+            # prevent one strategy from killing everything
+            print(f"Error in strategy {getattr(placement, 'name', placement)}: {e}")
+        await asyncio.sleep(interval)
+
+    # while True:
+    #     await placement.run_strategy()
+    #     await asyncio.sleep(interval)  
 
 
 async def main():
@@ -94,6 +104,7 @@ async def main():
     # Initialize client
     global_state.client = PolymarketClient()
     
+    logger = setup_logger()
     # Initialize state and fetch initial data
     global_state.all_tokens = []
     all_ = 'Full Sports Markets'

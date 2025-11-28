@@ -20,7 +20,7 @@ class strategy_202511(BaseStrategy):
         self.max_level_thred:int = max_level_thred
 
     def on_snapshot(self, orderbook:OrderBook):
-        self.bid_signal, self.ask_signal, best_bid_price, best_ask_price = self.compute_signal(orderbook) 
+        self.bid_signal, self.ask_signal, self.best_bid_price, self.best_ask_price = self.compute_signal(orderbook) 
         self.bid_size_signal, self.ask_size_signal = self.order_size, self.order_size
  
 

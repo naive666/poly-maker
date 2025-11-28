@@ -8,11 +8,13 @@ from datetime import datetime
 from py_clob_client.clob_types import TradeParams
 from zoneinfo import ZoneInfo
 from placements.base_placements import BasePlacement
+import logging
+logger = logging.getLogger("polymarket_bot")
 
 
 class Placement01(BasePlacement):
     def __init__(self, token0_id, token1_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager):
-        super().__init__(token0_id, token1_id, conditional_id,  strategy, exe_config, position_update_time_thred, order_manager)
+        super().__init__(token0_id, token1_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager)
         
         
     def evaluate_strategy(self):
@@ -22,6 +24,7 @@ class Placement01(BasePlacement):
         self.bid_leave_price = self.bid_submit_price - self.config['quote_NLevel'] * self.tick_size
         self.ask_leave_price = self.ask_submit_price + self.config['quote_NLevel'] * self.tick_size
         self.bid_size, self.ask_size = self.strategy.bid_size_signal, self.strategy.ask_size_signal
+        self.best_bid_price, self.best_ask_price = self.strategy.best_bid_price, self.strategy.best_ask_price
 
     def check_game_status(self):
         game_start_time = global_state.df[global_state.df['condition_id'] == self.conditional_id]['gameStartTime'].iloc[0]
@@ -32,10 +35,14 @@ class Placement01(BasePlacement):
         time_diff = isoparse(game_start_time) - utc_now
         if (time_diff.total_seconds() > 60 and time_diff.total_seconds() <= 48 * 3600):
             self.is_game_status = True 
-            print(f"Check game status success")
+            log_str = f"Check game {self.market} status success"
+            print(log_str)
+            logger.info(log_str)
         else:
             self.is_game_status = False 
-            print(f"Check game status fail")
+            log_str = f"Check game {self.market} status success"
+            print(log_str)
+            logger.info(log_str)
 
     def check_max_position(self):
         ok_process_bid, ok_process_ask = False, False
@@ -45,28 +52,40 @@ class Placement01(BasePlacement):
             pos0 = Decimal(self.asset_pos_dict[self.token0_id]['size'])
             if pos0 + self.bid_size <= self.config['max_pos']:
                 ok_process_bid = True
-                print(f"check {self.token0_id} max pos success")
+                log_str = f"Check {self.market} max position: pos 0: {pos0}, max pos: {self.config['max_pos']}, place full order"
+                print(log_str)
+                logger.info(log_str)
             elif pos0 < self.config['max_pos']:
                 ok_process_bid = True 
                 self.bid_size = self.config['max_pos'] - pos0 
-                print(f"check {self.token0_id} max pos success")
+                log_str = f"Check {self.market} max position: pos 0: {pos0}, max pos: {self.config['max_pos']}, place partial order"
+                print(log_str)
+                logger.info(log_str)
             else:
                 ok_process_bid = False
-                print(f"check {self.token0_id} max pos fail")
+                log_str = f"Check {self.market} max position: pos 0: {pos0}, max pos: {self.config['max_pos']}, place no order"
+                print(log_str)
+                logger.info(log_str)
         if not self.token1_id in self.asset_pos_dict:
             ok_process_ask = True 
         else:
             pos1 = Decimal(self.asset_pos_dict[self.token1_id]['size'])
             if pos1 + self.ask_size <= self.config['max_pos']:
                 ok_process_ask = True
-                print(f"check {self.token0_id} max pos success")
+                log_str = f"Check {self.market} max position: pos 1: {pos1}, max pos: {self.config['max_pos']}, place full order"
+                print(log_str)
+                logger.info(log_str)
             elif pos1 < self.config['max_pos']:
                 ok_process_ask = True 
                 self.ask_size = self.config['max_pos'] - pos1 
-                print(f"check {self.token0_id} max pos success")
+                log_str = f"Check {self.market} max position: pos 1: {pos1}, max pos: {self.config['max_pos']}, place partial order"
+                print(log_str)
+                logger.info(log_str)
             else:
                 ok_process_ask = False
-                print(f"check {self.token0_id} max pos fail")
+                log_str = f"Check {self.market} max position: pos 1: {pos1}, max pos: {self.config['max_pos']}, place no order"
+                print(log_str)
+                logger.info(log_str)
         return ok_process_bid, ok_process_ask
     
     def check_available_fund(self, price:Decimal, size:Decimal):
@@ -76,10 +95,14 @@ class Placement01(BasePlacement):
         total_balance = Decimal(global_state.client.get_total_balance())
         quote_cash = price * size
         if quote_cash < total_balance * self.config['single_pos_percent'] and quote_cash < cash_balance:
-            print("Check available fund success")
+            log_str = f"Check {self.market} availabel fund: cash balance: {cash_balance}, total_balance: {total_balance}, fund sufficient"
+            print(log_str)
+            logger.info(log_str)
             ok_process = True 
         else:
-            print("Check available fund fail")
+            log_str = f"Check {self.market} availabel fund: cash balance: {cash_balance}, total_balance: {total_balance}, fund insufficient"
+            print(log_str)
+            logger.info(log_str)
             ok_process = False 
         return ok_process
     
@@ -92,10 +115,14 @@ class Placement01(BasePlacement):
             if (current_value - initial_value) < -self.config['maxloss']:
                 ok_process_ask, ok_process_bid = False, False
                 self.is_game_status = False
-                print(f"{self.token0_id} has reached maxloss")
+                log_str = f"Check {self.market} pnl success: intial_value: {initial_value}, current_value: {current_value}, pnl: {current_value - initial_value}, maxloss: {self.config['maxloss']}"
+                print(log_str)
+                logger.info(log_str)
             else:
                 ok_process_ask, ok_process_bid = True, True
-                print(f"{self.token0_id} has not reached maxloss")
+                log_str = f"Check {self.market} pnl fail: intial_value: {initial_value}, current_value: {current_value}, pnl: {current_value - initial_value}, maxloss: {self.config['maxloss']}"
+                print(log_str)
+                logger.info(log_str)
 
         if self.token1_id in self.asset_pos_dict and self.token0_id not in self.asset_pos_dict:
             pos_dict = self.asset_pos_dict[self.token1_id]
@@ -104,10 +131,14 @@ class Placement01(BasePlacement):
             if (current_value - initial_value) < -self.config['maxloss']:
                 ok_process_ask, ok_process_bid = False, False
                 self.is_game_status = False  
-                print(f"{self.token1_id} has reached maxloss")
+                log_str = f"Check {self.market} pnl success: intial_value: {initial_value}, current_value: {current_value}, pnl: {current_value - initial_value}, maxloss: {self.config['maxloss']}"
+                print(log_str)
+                logger.info(log_str)
             else:
                 ok_process_ask, ok_process_bid = True, True
-                print(f"{self.token1_id} has not reached maxloss")
+                log_str = f"Check {self.market} pnl fail: intial_value: {initial_value}, current_value: {current_value}, pnl: {current_value - initial_value}, maxloss: {self.config['maxloss']}"
+                print(log_str)
+                logger.info(log_str)
         
         return ok_process_bid, ok_process_ask
     
