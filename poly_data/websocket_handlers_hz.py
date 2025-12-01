@@ -23,7 +23,7 @@ async def connect_market_websocket_hz(chunk):
         attempt to reconnect after a short delay.
     """
     uri = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
-    async with websockets.connect(uri, ping_interval=5, ping_timeout=None, open_timeout=30) as websocket:
+    async with websockets.connect(uri, ping_interval=5, ping_timeout=None, open_timeout=60) as websocket:
         # Prepare and send subscription message
         message = {"assets_ids": chunk}
         await websocket.send(json.dumps(message))
@@ -64,7 +64,7 @@ async def connect_user_websocket_hz():
     """
     uri = "wss://ws-subscriptions-clob.polymarket.com/ws/user"
 
-    async with websockets.connect(uri, ping_interval=5, ping_timeout=None, open_timeout=30) as websocket:
+    async with websockets.connect(uri, ping_interval=5, ping_timeout=None, open_timeout=60) as websocket:
         # Prepare authentication message with API credentials
         message = {
             "type": "user",

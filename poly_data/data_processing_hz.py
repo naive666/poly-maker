@@ -34,11 +34,11 @@ def process_book_data_hz(json_data):
         # update bid
         for bid_snapshot in json_data['bids']:
             p, s = Decimal(bid_snapshot['price']), Decimal(bid_snapshot['size'])
-            bid_df = global_state.orderbook_data[json_data['asset_id']].bid_levels.at[p,'size'] = s
+            global_state.orderbook_data[json_data['asset_id']].bid_levels.at[p,'size'] = s
         # update ask 
         for ask_snapshot in json_data['asks']:
             p, s = Decimal(ask_snapshot['price']), Decimal(ask_snapshot['size'])
-            ask_df = global_state.orderbook_data[json_data['asset_id']].ask_levels.at[p,'size'] = s
+            global_state.orderbook_data[json_data['asset_id']].ask_levels.at[p,'size'] = s
 
 
 def process_price_change_hz(asset_id, side, price_level, new_size):

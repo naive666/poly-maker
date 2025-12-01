@@ -13,7 +13,19 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 spreadsheet = get_spreadsheet()
 client = get_clob_client()
 
+def get_sport_tag_id(sport_name: str) -> str:
+    """
+    Fetch the Polymarket sport tagId for a given sport, e.g. 'EPL', 'NBA', 'NFL'.
+    """
+    sports = requests.get(f"{BASE}/sports", timeout=20).json()
+    # items = sports.get("sports", [])
 
+    for s in sports:
+        if s.get("sport", "").upper() == sport_name.upper():    
+            tag = s['tags'].split(',')[1]        
+            return int(tag)
+
+    raise ValueError(f"Sport '{sport_name}' not found.")
 
 def get_markets_by_tag_id(tag_id, closed=False, limit=250, max_pages=20):
     all_markets = []
@@ -64,8 +76,9 @@ def iter_markets_from_series(series_obj):
 
 
 def process_single_sport(sport_type):
-    spprt_tag = requests.get(f"{BASE}/tags/slug/{sport_type}", timeout=20).json()
-    sport_tag_id = int(spprt_tag["id"])    
+    # spprt_tag = requests.get(f"{BASE}/tags/slug/{sport_type}", timeout=20).json()
+    # sport_tag_id = int(spprt_tag["id"])   
+    sport_tag_id = get_sport_tag_id(sport_type)
     all_mkt = get_markets_by_tag_id(sport_tag_id, closed=False, limit=250)
     alive_mkt = get_alive_market(all_mkt)
     cache = []
@@ -201,7 +214,7 @@ if __name__ == '__main__':
     #               'caf', 'rus', 'efa', 'efl', 'mls', 'nba', 'nhl', 'uel', 'csgo', 
     #               'dota2', 'lol', 'valorant', 'odi', 't20', 'abb', 'csa', 'atp', 
     #               'wta', 'cwbb', 'mma', 'cdr']
-    sport_type_list = ['nba', 'nhl', 'cfb', 'nfl']
+    sport_type_list = ['nba', 'nhl', 'cfb', 'nfl','mls', 'dota2', 'lol','epl','lal','bun','ucl','sea']
     result_list = []
     with ThreadPoolExecutor(max_workers=2) as pool:
         futs = [pool.submit(process_single_sport, s) for s in sport_type_list]

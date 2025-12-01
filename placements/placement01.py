@@ -4,7 +4,7 @@ from placements.order_manager import Order, OrderManager
 import time 
 from decimal import Decimal
 from dateutil.parser import isoparse
-from datetime import datetime
+from datetime import datetime, timedelta
 from py_clob_client.clob_types import TradeParams
 from zoneinfo import ZoneInfo
 from placements.base_placements import BasePlacement
@@ -13,8 +13,8 @@ logger = logging.getLogger("polymarket_bot")
 
 
 class Placement01(BasePlacement):
-    def __init__(self, token0_id, token1_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager):
-        super().__init__(token0_id, token1_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager)
+    def __init__(self, token0_id, token1_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager, min_valid_hour, max_valid_hour):
+        super().__init__(token0_id, token1_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager, min_valid_hour, max_valid_hour)
         
         
     def evaluate_strategy(self):
@@ -33,7 +33,7 @@ class Placement01(BasePlacement):
         local_now = datetime.now(local_tz)
         utc_now = local_now.astimezone(utc_tz)
         time_diff = isoparse(game_start_time) - utc_now
-        if (time_diff.total_seconds() > 60 and time_diff.total_seconds() <= 48 * 3600):
+        if (time_diff > timedelta(hours=self.min_valid_hour) and time_diff <= timedelta(hours=self.max_valid_hour)):
             self.is_game_status = True 
             log_str = f"Check game {self.market} status success"
             print(log_str)

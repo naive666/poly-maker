@@ -11,14 +11,29 @@ from poly_data.orderbook import OrderBook
 from placements.order_manager import OrderManager
 from placements.base_placements import BasePlacement
 from placements.placement01 import Placement01
+from placements.placement_one_side import PlacementOneSide
 from graphs.strategy_v20251101 import strategy_202511
 import poly_data.global_state as global_state
 from poly_data.data_processing import remove_from_performing
 from dotenv import load_dotenv
+import pandas as pd 
+from datetime import datetime, timezone, timedelta
 from logging_setup import setup_logger
 
 
 load_dotenv()
+
+def check_valid_market(row, volume_thred=100000, min_hour=2, max_hour=24):
+    if row['volume'] == '':
+        return False
+    if Decimal(row['volume']) < volume_thred:
+        return False 
+    # check start time
+    gameStartTime = pd.to_datetime(row["gameStartTime"], utc=True)
+    now_utc = datetime.now(timezone.utc)
+    if timedelta(hours=min_hour) <= (gameStartTime - now_utc) <= timedelta(hours=max_hour):
+        return True 
+
 
 def update_once(all='Full Sports Markets', sel='Selected Sports Markets', graph_update_period=10, max_level_thred=20):
     """
@@ -28,8 +43,18 @@ def update_once(all='Full Sports Markets', sel='Selected Sports Markets', graph_
     update_positions()  # Get current positions from Polymarket
     update_orders()     # Get current orders from Polymarket
     for idx, row in global_state.df.iterrows():
+        # check if the market is valid
+        min_hour, max_hour = 2, 24
+        is_market_valid = check_valid_market(row, volume_thred=20000, min_hour=min_hour, max_hour=max_hour)
+        if not is_market_valid:
+            continue 
         token_id = str(row['token1'])
         token2_id = str(row['token2'])
+        best_bid = Decimal(row['best_bid'])
+        best_ask = Decimal(row['best_ask'])
+        # only trade small winrate one
+        if best_bid > 0.5:
+            token_id, token2_id = token2_id, token_id
         conditional_id = row['condition_id']
         order_size = Decimal(row['trade_size'])
         bbo_size_thred = Decimal(row['bbo_size_thred'])
@@ -47,9 +72,12 @@ def update_once(all='Full Sports Markets', sel='Selected Sports Markets', graph_
         global_state.market_token_info[conditional_id] = [token_id, token2_id, question]
         exe_config = {'quote_NLevel': quote_NLevel, 'max_pos':max_pos, 'single_pos_percent':single_pos_percent, 'maxloss': maxloss}
         strategy = strategy_202511(token_id, order_size, bbo_size_thred, bbo_gap_thred, update_period, max_level_thred)
-        placement = Placement01( token_id, token2_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager)
+        placement = PlacementOneSide( token_id, token2_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager, min_valid_hour=min_hour, max_valid_hour=max_hour)
         global_state.strategy_dict[conditional_id] = [placement]
         global_state.strategy_list_all += global_state.strategy_dict[conditional_id]
+ 
+        if token_id not in global_state.all_tokens:
+            global_state.all_tokens.append(token_id)
 
 
 def update_periodically(all='Full Sports Markets', sel='Selected Sports Markets'):
@@ -84,12 +112,12 @@ def update_periodically(all='Full Sports Markets', sel='Selected Sports Markets'
 
 async def strategy_loop(placement:BasePlacement, interval: float = 1):
     while True:
-        try:
-            async with placement.lock:
-                await placement.run_strategy()
-        except Exception as e:
+        # try:
+        async with placement.lock:
+            await placement.run_strategy()
+        # except Exception as e:
             # prevent one strategy from killing everything
-            print(f"Error in strategy {getattr(placement, 'name', placement)}: {e}")
+            # print(f"Error in strategy {getattr(placement, 'name', placement)}: {e}")
         await asyncio.sleep(interval)
 
     # while True:

@@ -159,8 +159,11 @@ def update_markets(all='All Markets', sel='Selected Markets'):
         for col in ['token1', 'token2']:
             row[col] = str(row[col])
 
-        if row['token1'] not in global_state.all_tokens:
-            global_state.all_tokens.append(row['token1'])
+        # if row['token1'] not in global_state.all_tokens:
+        #     global_state.all_tokens.append(row['token1'])
+        
+        # if row['token2'] not in global_state.all_tokens:
+        #     global_state.all_tokens.append(row['token2'])
 
         if row['token1'] not in global_state.REVERSE_TOKENS:
             global_state.REVERSE_TOKENS[row['token1']] = row['token2']

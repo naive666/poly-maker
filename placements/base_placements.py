@@ -12,7 +12,7 @@ logger = logging.getLogger("polymarket_bot")
 
 class BasePlacement:
     def __init__(self, token0_id:str, token1_id:str, conditional_id:str, strategy:BaseStrategy, exe_config:Dict, position_update_time_thred:Decimal, 
-                 order_manager:OrderManager):
+                 order_manager:OrderManager, min_valid_hour:int=3, max_valid_hour:int=48):
         self.tick_size:Decimal = Decimal(global_state.df[global_state.df['condition_id'] == conditional_id]['tick_size'].iloc[0])
         self.token0_id:str = token0_id
         self.token1_id:str = token1_id 
@@ -38,6 +38,8 @@ class BasePlacement:
         self.lock:asyncio.Lock = global_state.lock[self.conditional_id]
         self.eval_cnt:int = 0
         self.market = global_state.market_token_info[self.conditional_id][2]
+        self.min_valid_hour = min_valid_hour
+        self.max_valid_hour = max_valid_hour
         # self.last_update_time = 0
     
 
@@ -106,9 +108,9 @@ class BasePlacement:
     def get_position(self, token_id:str):
         pos_df = pd.DataFrame()                 
         global_state.position_update_time = datetime.now()
-        pos_all = global_state.client.get_all_positions() 
-        pos_df = pos_all[pos_all['asset'] == token_id]
-        if len(pos_df) > 0:
+        pos_all = global_state.client.get_all_positions()         
+        if len(pos_all) > 0:
+            pos_df = pos_all[pos_all['asset'] == token_id]
             size = Decimal(str(pos_df['size'].values[0]))
             avg_price = Decimal(str(pos_df['avgPrice'].values[0]))
             cashPnl = Decimal(str(pos_df['cashPnl'].values[0]))
@@ -129,7 +131,7 @@ class BasePlacement:
 
     async def run_strategy(self):
         self.eval_cnt += 1
-        if self.eval_cnt % 10 == 1:
+        if self.eval_cnt % 100 == 1:
             self.update_pending_orders()
             self.get_position(self.token0_id)
             self.get_position(self.token1_id)
@@ -201,7 +203,7 @@ class BasePlacement:
         
                 should_cancel = (
                     price_diff == 1 or  # Cancel if price diff == 0 tick
-                    size_diff > order.pending_size * 0.1 or  # Cancel if size diff > 10%
+                    Decimal(size_diff) > order.pending_size * 0.1 or  # Cancel if size diff > 10%
                     existing_buy_size == 0  # Cancel if no existing buy order
                 )
         
@@ -225,7 +227,7 @@ class BasePlacement:
             float(order.price * order.tick_size), 
             float(order.pending_size)
         )
-        order.order_id = order_id
+        order.order_id = order_id['orderID']
         self.om.add_order(order)
 
         return order_id
@@ -252,7 +254,7 @@ class BasePlacement:
         
                 should_cancel = (
                     price_diff > 0.005 or  # Cancel if price diff > 0.5 cents
-                    size_diff > order.pending_size * 0.1 or  # Cancel if size diff > 10%
+                    Decimal(size_diff)> order.pending_size * 0.1 or  # Cancel if size diff > 10%
                     existing_ask_size == 0  # Cancel if no existing buy order
                 )
         
@@ -276,10 +278,17 @@ class BasePlacement:
             float(order.price * order.tick_size), 
             float(order.pending_size)
         )
-        order.order_id = order_id
+        order.order_id = order_id['orderID']
         self.om.add_order(order)
         
         return order_id
+    
+    def cancel_all_asset(self, asset:str):
+        # cancel all pending orders
+        global_state.client.cancel_all_asset(asset)
+
+    def cance_all_market(self, market:str):
+        global_state.client.cancel_all_market(market)
     
 
     def cancel_order_between_price(self, price_lower:int, price_higher:int, side:int):
@@ -297,7 +306,7 @@ class BasePlacement:
                     print(log_str)
                     logger.info(log_str)
                     global_state.client.cancel_order(o.order_id)
-                    self.om.token0_order_dict.delete_order(o.order_id, price, side)
+                    self.om.delete_order(o.order_id, price, side)
         elif side == 1:
             if price in self.om.token1_order_dict:
                 order_list = self.om.token1_order_dict[price]
@@ -306,7 +315,7 @@ class BasePlacement:
                     print(log_str)
                     logger.info(log_str)
                     global_state.client.cancel_order(o.order_id)
-                    self.om.token1_order_dict.delete_order(o.order_id, price, side)
+                    self.om.delete_order(o.order_id, price, side)
 
 
     def cancel_invalid_order(self, side:int):

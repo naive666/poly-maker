@@ -30,6 +30,8 @@ const provider = new ethers.providers.JsonRpcProvider("https://polygon-rpc.com")
 const privateKey = process.env.PK;
 const wallet = new ethers.Wallet(privateKey, provider);
 
+console.log("Signer wallet address:", wallet.address);
+
 // Polymarket contract addresses
 const addresses = {
   // Adapter contract for negative risk markets
@@ -104,39 +106,39 @@ async function mergePositions(amountToMerge, conditionId, isNegRiskMarket) {
     console.log("merge positions " + txReceipt.transactionHash);
     return txReceipt.transactionHash;
 
-    /* Original Version
+    // Original Version
     // Prepare full transaction object
-    const transaction = {
-      ...tx,
-      chainId: 137,       // Polygon chain ID
-      gasPrice: gasPrice,
-      gasLimit: gasLimit,
-      nonce: nonce
-    };
+    // const transaction = {
+    //   ...tx,
+    //   chainId: 137,       // Polygon chain ID
+    //   gasPrice: gasPrice,
+    //   gasLimit: gasLimit,
+    //   nonce: nonce
+    // };
 
-    // Get the Safe address from environment variables
-    const safeAddress = process.env.BROWSER_ADDRESS;
-    const safe = new ethers.Contract(safeAddress, safeAbi, wallet);
+    // // Get the Safe address from environment variables
+    // const safeAddress = process.env.BROWSER_ADDRESS;
+    // const safe = new ethers.Contract(safeAddress, safeAbi, wallet);
 
-    // Execute the transaction through the Safe
-    console.log("Signing Transaction")
-    const txResponse = await signAndExecuteSafeTransaction(
-      wallet, 
-      safe, 
-      transaction.to, 
-      transaction.data, 
-      { 
-        gasPrice: transaction.gasPrice, 
-        gasLimit: transaction.gasLimit 
-      }
-    );
+    // // Execute the transaction through the Safe
+    // console.log("Signing Transaction")
+    // const txResponse = await signAndExecuteSafeTransaction(
+    //   wallet, 
+    //   safe, 
+    //   transaction.to, 
+    //   transaction.data, 
+    //   { 
+    //     gasPrice: transaction.gasPrice, 
+    //     gasLimit: transaction.gasLimit 
+    //   }
+    // );
     
-    console.log("Sent transaction. Waiting for response")
-    const txReceipt = await txResponse.wait();
+    // console.log("Sent transaction. Waiting for response")
+    // const txReceipt = await txResponse.wait();
     
-    console.log("merge positions " + txReceipt.transactionHash);
-    return txReceipt.transactionHash;
-    */
+    // console.log("merge positions " + txReceipt.transactionHash);
+    // return txReceipt.transactionHash;
+    
 }
 
 // Parse command line arguments
