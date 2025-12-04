@@ -219,24 +219,28 @@ class PlacementOneSide(BasePlacement):
             bid_submit_price_tick, ask_submit_price_tick = round(self.bid_submit_price / self.tick_size), round(self.ask_submit_price / self.tick_size)
             bid_leave_price_tick, ask_leave_price_tick = round(self.bid_leave_price / self.tick_size), round(self.ask_leave_price / self.tick_size)
             best_bid_price_tick, best_ask_price_tick = round(self.best_bid_price / self.tick_size), round(self.best_ask_price / self.tick_size )
+            # check is price valid
+            ok_bid_price, ok_ask_price = self.check_valid_price(bid_submit_price_tick), self.check_valid_price(ask_submit_price_tick)
             # cancel orders inner than submit price
             self.cancel_order_between_price(bid_submit_price_tick+1, best_bid_price_tick, 0)
             self.cancel_order_between_price(best_ask_price_tick, ask_submit_price_tick-1, 1)
             for i in range(bid_submit_price_tick, bid_leave_price_tick, -1):
                 ok_bid_fund = self.check_available_fund(self.tick_size*i, self.bid_size)
                 ok_bid_pending, _ = self.check_pending_order(i, 0)
-                if ok_bid_fund and ok_bid_maxpos and ok_bid_pnl and ok_bid_pending: 
+                if ok_bid_fund and ok_bid_maxpos and ok_bid_pnl and ok_bid_pending and ok_bid_price: 
                     token0_buy_order = Order(token_id=self.token0_id, price=i, tick_size=self.tick_size, size=self.bid_size, 
                                             side=0, create_time=datetime.now(), market=self.market)
                     # if signal changes, we need to change the order
                     self.cancel_invalid_order(0)
-                    self.send_buy_order(token0_buy_order)
+                    # self.send_buy_order(token0_buy_order)
+                    await global_state.order_dispatcher.submit(token0_buy_order, self.om)
             for i in range(ask_submit_price_tick, ask_leave_price_tick, 1):
                 ok_ask_fund = True
                 _, ok_ask_pending = self.check_pending_order(i, 1)
-                if ok_ask_fund and ok_ask_maxpos and ok_ask_pnl and ok_ask_pending: 
+                if ok_ask_fund and ok_ask_maxpos and ok_ask_pnl and ok_ask_pending and ok_ask_price: 
                     token0_sell_order = Order(token_id=self.token0_id, price=i, tick_size=self.tick_size, size=self.ask_size, 
                                             side=1, create_time=datetime.now(), market=self.market)
                     self.cancel_invalid_order(1)
-                    self.send_sell_order(token0_sell_order)
+                    await global_state.order_dispatcher.submit(token0_sell_order, self.om)
+                    # self.send_sell_order(token0_sell_order)
     

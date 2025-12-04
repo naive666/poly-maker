@@ -12,6 +12,7 @@ from placements.order_manager import OrderManager
 from placements.base_placements import BasePlacement
 from placements.placement01 import Placement01
 from placements.placement_one_side import PlacementOneSide
+from placements.order_dispatcher import OrderDispatcher
 from graphs.strategy_v20251101 import strategy_202511
 import poly_data.global_state as global_state
 from poly_data.data_processing import remove_from_performing
@@ -39,12 +40,18 @@ def update_once(all='Full Sports Markets', sel='Selected Sports Markets', graph_
     """
     Initialize the application state by fetching market data, positions, and orders.
     """
+    print(f"start update market")
     update_markets(all=all, sel=sel)    # Get market information from Google Sheets
+    print(f"finish update market")
     update_positions()  # Get current positions from Polymarket
+    print(f"finish update positions")
     update_orders()     # Get current orders from Polymarket
+    print(f"finish update orders")
+    valid_mkt_cnt = 0
+
     for idx, row in global_state.df.iterrows():
         # check if the market is valid
-        min_hour, max_hour = 2, 24
+        min_hour, max_hour = 3, 48
         is_market_valid = check_valid_market(row, volume_thred=20000, min_hour=min_hour, max_hour=max_hour)
         if not is_market_valid:
             continue 
@@ -66,7 +73,7 @@ def update_once(all='Full Sports Markets', sel='Selected Sports Markets', graph_
         question = row['question']
         position_update_time_thred = 5
         global_state.lock[conditional_id] = asyncio.Lock()
-        order_manager = OrderManager()
+        order_manager = OrderManager(conditional_id)
         update_period = int(graph_update_period)
         max_level_thred = int(max_level_thred)
         global_state.market_token_info[conditional_id] = [token_id, token2_id, question]
@@ -75,10 +82,12 @@ def update_once(all='Full Sports Markets', sel='Selected Sports Markets', graph_
         placement = PlacementOneSide( token_id, token2_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager, min_valid_hour=min_hour, max_valid_hour=max_hour)
         global_state.strategy_dict[conditional_id] = [placement]
         global_state.strategy_list_all += global_state.strategy_dict[conditional_id]
- 
+        valid_mkt_cnt += 1
         if token_id not in global_state.all_tokens:
             global_state.all_tokens.append(token_id)
-
+    log_str = f'total valid market: {valid_mkt_cnt}'
+    print(log_str)
+    logger.info(log_str)
 
 def update_periodically(all='Full Sports Markets', sel='Selected Sports Markets'):
     """
@@ -131,8 +140,9 @@ async def main():
     """
     # Initialize client
     global_state.client = PolymarketClient()
+    global_state.order_dispatcher = OrderDispatcher(global_state.client)
+    print('initialize client')
     
-    logger = setup_logger()
     # Initialize state and fetch initial data
     global_state.all_tokens = []
     all_ = 'Full Sports Markets'
@@ -156,6 +166,7 @@ async def main():
     
     # Main loop - maintain websocket connections
     while True:
+        asyncio.create_task(global_state.order_dispatcher.send_loop())
         await asyncio.gather(
                 connect_market_websocket_hz(global_state.all_tokens),
                 connect_user_websocket_hz(),
@@ -163,8 +174,9 @@ async def main():
             )
         # placement.run_strategy()
             
-        await asyncio.sleep(5)  
+        await asyncio.sleep(1)  
         gc.collect()  # Clean up memory
 
 if __name__ == "__main__":
+    logger = setup_logger()
     asyncio.run(main())

@@ -30,11 +30,12 @@ def get_sheet_df(read_only=None, all='All Markets', sel='Selected Markets'):
     wk = spreadsheet.worksheet(sel)
     df = pd.DataFrame(wk.get_all_records())
     df = df[df['question'] != ""].reset_index(drop=True)
+    df = df.drop_duplicates(subset=["question"])
 
     wk2 = spreadsheet.worksheet(all)
     df2 = pd.DataFrame(wk2.get_all_records())
     df2 = df2[df2['question'] != ""].reset_index(drop=True)
-
+    df2 = df2.drop_duplicates(subset=["question", "gameStartTime"])
     result = df.merge(df2, on='question', how='inner')
 
     wk_p = spreadsheet.worksheet('Hyperparameters')

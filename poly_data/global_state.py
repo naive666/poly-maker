@@ -3,7 +3,9 @@ import pandas as pd
 from typing import Dict
 from poly_data.orderbook import OrderBook
 from graphs.base_strategy import BaseStrategy
+from collections import deque
 from placements.base_placements import BasePlacement
+from placements.order_dispatcher import OrderDispatcher
 
 # ============ Market Data ============
 
@@ -58,3 +60,6 @@ strategy_list_all: list[BasePlacement] = []
 
 # market token map
 market_token_info: Dict[str, list[str]] = {}  # {conditional_id: [token_id1, token_id2]}
+
+# order dispatcher
+order_dispatcher: OrderDispatcher = None 

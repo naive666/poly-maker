@@ -42,6 +42,11 @@ class BasePlacement:
         self.max_valid_hour = max_valid_hour
         # self.last_update_time = 0
     
+    def check_valid_price(self, price:int):
+        ok_to_process = True 
+        if price < 5 or price > 95:
+            ok_to_process = False 
+        return ok_to_process
 
     def check_pending_order(self, price:int, side:int):
         price = round(price)  # price is in tick space
@@ -181,7 +186,6 @@ class BasePlacement:
 
     def check_available_fund(self, price:Decimal, size:Decimal):
         pass 
-    
 
     def send_buy_order(self, order:Order):
         """
@@ -191,31 +195,6 @@ class BasePlacement:
         # iterate over all orders to decide place new order or not
         if self.is_game_status == False:
             return 
-        for prc, order_list in self.om.token0_order_dict.items():
-            if prc == order.price:
-                # Only cancel existing orders if we need to make significant changes
-                existing_buy_size = sum([ o.pending_size for o in order_list])  
-                existing_buy_price = order.price 
-        
-                # Cancel orders if price changed significantly or size needs major adjustment
-                price_diff = abs(existing_buy_price - order.price) if existing_buy_price > 0 else float('inf')
-                size_diff = abs(existing_buy_size - order.pending_size) if existing_buy_size > 0 else float('inf')
-        
-                should_cancel = (
-                    price_diff == 1 or  # Cancel if price diff == 0 tick
-                    Decimal(size_diff) > order.pending_size * 0.1 or  # Cancel if size diff > 10%
-                    existing_buy_size == 0  # Cancel if no existing buy order
-                )
-        
-                if should_cancel and existing_buy_size > 0:
-                    print(f"Cancelling buy orders - price diff: {price_diff:.4f}, size diff: {size_diff:.1f}")
-                    for o in order_list:
-                        client.cancel_order(o.order_id)
-                        self.om.delete_order(order_id=o.order_id, order_price=o.price, side=0)
-                elif not should_cancel:
-                    print(f"Keeping existing buy orders - minor changes: price diff: {price_diff:.4f}, size diff: {size_diff:.1f}")
-                    return  # Don't place new order if existing one is fine
-
         
         # Only place orders with prices between 0.1 and 0.9 to avoid extreme positions
         log_str = f"Create Buy Order for {order.market}, size: {order.pending_size}, price: {order.price}"
@@ -227,8 +206,9 @@ class BasePlacement:
             float(order.price * order.tick_size), 
             float(order.pending_size)
         )
-        order.order_id = order_id['orderID']
-        self.om.add_order(order)
+        if len(order_id) > 0:
+            order.order_id = order_id['orderID']
+            self.om.add_order(order)
 
         return order_id
 
@@ -242,31 +222,6 @@ class BasePlacement:
         # iterate over all orders to decide place new order or not
         if self.is_game_status == False:
             return
-        for prc, order_list in self.om.token1_order_dict.items():
-            if prc == order.price:
-                # Only cancel existing orders if we need to make significant changes
-                existing_ask_size = sum([ o.pending_size for o in order_list])  
-                existing_ask_price = order.price 
-        
-                # Cancel orders if price changed significantly or size needs major adjustment
-                price_diff = abs(existing_ask_price - order.price) if existing_ask_price > 0 else float('inf')
-                size_diff = abs(existing_ask_size - order.pending_size) if existing_ask_size > 0 else float('inf')
-        
-                should_cancel = (
-                    price_diff > 0.005 or  # Cancel if price diff > 0.5 cents
-                    Decimal(size_diff)> order.pending_size * 0.1 or  # Cancel if size diff > 10%
-                    existing_ask_size == 0  # Cancel if no existing buy order
-                )
-        
-                if should_cancel and existing_ask_size > 0:
-                    print(f"Cancelling buy orders - price diff: {price_diff:.4f}, size diff: {size_diff:.1f}")
-                    for o in order_list:
-                        client.cancel_order(o.order_id)
-                        self.om.delete_order(order_id=o.order_id, order_price=o.price, side=1)
-                elif not should_cancel:
-                    print(f"Keeping existing buy orders - minor changes: price diff: {price_diff:.4f}, size diff: {size_diff:.1f}")
-                    return  # Don't place new order if existing one is fine
-
         
         # Only place orders with prices between 0.1 and 0.9 to avoid extreme positions
         log_str = f"Create Sell Order for {order.market}, size: {order.pending_size}, price: {order.price}"
@@ -278,8 +233,9 @@ class BasePlacement:
             float(order.price * order.tick_size), 
             float(order.pending_size)
         )
-        order.order_id = order_id['orderID']
-        self.om.add_order(order)
+        if len(order_id) > 0:
+            order.order_id = order_id['orderID']
+            self.om.add_order(order)
         
         return order_id
     
