@@ -2,6 +2,7 @@ import json
 from poly_utils.google_utils import get_spreadsheet
 import pandas as pd 
 import os
+import datetime as dt
 
 def pretty_print(txt, dic):
     print("\n", txt, json.dumps(dic, indent=4))
@@ -65,3 +66,38 @@ def get_sheet_df(read_only=None, all='All Markets', sel='Selected Markets'):
             hyperparams.setdefault(current_type, {})[r['param']] = value
 
     return result, hyperparams
+
+
+
+
+def parse_polymarket_time(s: str) -> dt.datetime:
+    """
+    Parse Polymarket's gameStartTime format.
+    Examples that this handles:
+      '2025-12-08 20:00:00+00'
+      '2025-12-08 20:00:00+00:00'
+      '2025-12-08T20:00:00Z'
+      '2025-12-08T20:00:00+00:00'
+    Returns a timezone-aware datetime in UTC.
+    """
+
+    s = s.strip()
+
+    # If ends with "+00" → convert to "+00:00"
+    if s.endswith("+00"):
+        s = s + ":00"     # becomes '+00:00'
+
+    # Replace space separator with 'T'
+    if " " in s and "T" not in s:
+        date_part, time_part = s.split(" ", 1)
+        s = f"{date_part}T{time_part}"
+
+    # Replace 'Z' with '+00:00'
+    if s.endswith("Z"):
+        s = s.replace("Z", "+00:00")
+
+    # Now ISO-compliant → parse
+    dt_obj = dt.datetime.fromisoformat(s)
+
+    # Convert to UTC timezone explicitly
+    return dt_obj.astimezone(dt.timezone.utc)

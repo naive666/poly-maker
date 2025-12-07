@@ -23,6 +23,7 @@ dependencies = [
     "google-auth==2.42.1",
     "web3==7.14.0",
     "py-builder-relayer-client>=0.0.1",
+    "httpx>=0.28.1",
 ]
 
 [project.optional-dependencies]

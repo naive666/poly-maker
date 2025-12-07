@@ -1,6 +1,7 @@
 from graphs.base_strategy import BaseStrategy
 import poly_data.global_state as global_state
 from placements.order_manager import Order, OrderManager
+from poly_data.utils import parse_polymarket_time
 import time, asyncio
 import pandas as pd 
 from typing import Dict
@@ -12,7 +13,7 @@ logger = logging.getLogger("polymarket_bot")
 
 class BasePlacement:
     def __init__(self, token0_id:str, token1_id:str, conditional_id:str, strategy:BaseStrategy, exe_config:Dict, position_update_time_thred:Decimal, 
-                 order_manager:OrderManager, min_valid_hour:int=3, max_valid_hour:int=48):
+                 order_manager:OrderManager, min_valid_hour:int=3, max_valid_hour:int=48, game_start_time:str=None):
         self.tick_size:Decimal = Decimal(global_state.df[global_state.df['condition_id'] == conditional_id]['tick_size'].iloc[0])
         self.token0_id:str = token0_id
         self.token1_id:str = token1_id 
@@ -40,6 +41,9 @@ class BasePlacement:
         self.market = global_state.market_token_info[self.conditional_id][2]
         self.min_valid_hour = min_valid_hour
         self.max_valid_hour = max_valid_hour
+        self.game_start_time = game_start_time 
+        if self.game_start_time is not None:
+            self.game_start_time = parse_polymarket_time(self.game_start_time)
         # self.last_update_time = 0
     
     def check_valid_price(self, price:int):

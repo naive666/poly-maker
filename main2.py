@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 import pandas as pd 
 from datetime import datetime, timezone, timedelta
 from logging_setup import setup_logger
+from telegram_bot.telegram_alerts import send_telegram
 
 
 load_dotenv()
@@ -76,10 +77,11 @@ def update_once(all='Full Sports Markets', sel='Selected Sports Markets', graph_
         order_manager = OrderManager(conditional_id)
         update_period = int(graph_update_period)
         max_level_thred = int(max_level_thred)
+        game_start_time = row['gameStartTime']
         global_state.market_token_info[conditional_id] = [token_id, token2_id, question]
         exe_config = {'quote_NLevel': quote_NLevel, 'max_pos':max_pos, 'single_pos_percent':single_pos_percent, 'maxloss': maxloss}
         strategy = strategy_202511(token_id, order_size, bbo_size_thred, bbo_gap_thred, update_period, max_level_thred)
-        placement = PlacementOneSide( token_id, token2_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager, min_valid_hour=min_hour, max_valid_hour=max_hour)
+        placement = PlacementOneSide( token_id, token2_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager, min_valid_hour=min_hour, max_valid_hour=max_hour, game_start_time=game_start_time)
         global_state.strategy_dict[conditional_id] = [placement]
         global_state.strategy_list_all += global_state.strategy_dict[conditional_id]
         valid_mkt_cnt += 1
@@ -121,17 +123,22 @@ def update_periodically(all='Full Sports Markets', sel='Selected Sports Markets'
 
 async def strategy_loop(placement:BasePlacement, interval: float = 1):
     while True:
-        # try:
-        async with placement.lock:
-            await placement.run_strategy()
-        # except Exception as e:
+        try:
+            async with placement.lock:
+                await placement.run_strategy()
+        except Exception as e:
             # prevent one strategy from killing everything
-            # print(f"Error in strategy {getattr(placement, 'name', placement)}: {e}")
+            print(f"Error in strategy {getattr(placement, 'name', placement)}: {e}")
+            send_telegram(f"❌ Strategy crashed: {type(e).__name__}: {e!r}")
         await asyncio.sleep(interval)
 
-    # while True:
-    #     await placement.run_strategy()
-    #     await asyncio.sleep(interval)  
+
+
+def set_game_start_alert():
+    # global_state
+    pass
+
+
 
 
 async def main():
@@ -154,15 +161,8 @@ async def main():
     print("\n")
     print(f'There are {len(global_state.df)} market, {len(global_state.positions)} positions and {len(global_state.orders)} orders. Starting positions: {global_state.positions}')
     
+    # set alert for game start
     
-    
-    # order_manager = OrderManager()
-    # bp = BasePlacement('strategy', 'exe_config', 100 ,order_manager)
-    # bp.get_pending_orders('0x610880fb46dd51ddd7be1e25a6feb09faf4f3cfd6a6c7c7647c0222dbcf2045a')
-
-    # Start background update thread
-    # update_thread = threading.Thread(target=update_periodically, daemon=True) # update_periodically will cancel the order the exist too long, but our local code will not
-    # update_thread.start()
     
     # Main loop - maintain websocket connections
     while True:
@@ -178,5 +178,14 @@ async def main():
         gc.collect()  # Clean up memory
 
 if __name__ == "__main__":
-    logger = setup_logger()
-    asyncio.run(main())
+    try:
+        send_telegram("Strategy starting up")
+        logger = setup_logger()
+        asyncio.run(main())
+    except Exception as e:
+        # Unexpected crash
+        send_telegram(f"❌ Strategy crashed: {type(e).__name__}: {e!r}")
+        raise            # re-raise so you still see stack trace / logs
+    finally:
+        # Called on both normal exit and crash
+        send_telegram("⚠️ Strategy stopped (process exiting).")

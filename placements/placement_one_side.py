@@ -5,17 +5,19 @@ import time
 import pandas as pd 
 from decimal import Decimal
 from dateutil.parser import isoparse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from py_clob_client.clob_types import TradeParams
 from zoneinfo import ZoneInfo
+from threading import Timer
+from telegram_bot.game_start_alerts import send_position_check
 from placements.base_placements import BasePlacement
 import logging
 logger = logging.getLogger("polymarket_bot")
 
 
 class PlacementOneSide(BasePlacement):
-    def __init__(self, token0_id, token1_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager, min_valid_hour, max_valid_hour):
-        super().__init__(token0_id, token1_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager, min_valid_hour, max_valid_hour)
+    def __init__(self, token0_id, token1_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager, min_valid_hour, max_valid_hour, game_start_time):
+        super().__init__(token0_id, token1_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager, min_valid_hour, max_valid_hour, game_start_time)
         
         
     def evaluate_strategy(self):
@@ -202,12 +204,19 @@ class PlacementOneSide(BasePlacement):
             pos_dict = {'size': size, 'avg_price': avg_price, 'cashPnl': cashPnl, 'initialValue': initial_value, 'currentValue': current_value}
             self.asset_pos_dict[token_id] = pos_dict 
 
+            # send alert if there are position 30 minute before game start 
+            alert_time = self.game_start_time - timedelta(minutes=30)
+            now = datetime.now(timezone.utc)
+            delay = max((alert_time - now).total_seconds(), 0)
+            if 0 < delay < 120:
+                Timer(delay, send_position_check(self.market, 30, token_id, size, self.game_start_time)).start()
+
 
     async def run_strategy(self):
         self.eval_cnt += 1
-        if self.eval_cnt % 60 == 1:
+        if self.eval_cnt % 200 == 1:
             self.update_pending_orders()
-            self.get_position(self.token0_id)
+            self.get_position(self.token0_id) # only trade the first token
             # self.get_position(self.token1_id)
             self.check_game_status()
             self.evaluate_strategy()
@@ -227,7 +236,11 @@ class PlacementOneSide(BasePlacement):
             for i in range(bid_submit_price_tick, bid_leave_price_tick, -1):
                 ok_bid_fund = self.check_available_fund(self.tick_size*i, self.bid_size)
                 ok_bid_pending, _ = self.check_pending_order(i, 0)
-                if ok_bid_fund and ok_bid_maxpos and ok_bid_pnl and ok_bid_pending and ok_bid_price: 
+                if not self.is_game_status:
+                    # cancel all pending orders
+                    if self.om.token0_order_cnt > 0: # cancel all orders for both side
+                        self.cance_all_asset(self.token0_id)
+                if self.is_game_status and ok_bid_fund and ok_bid_maxpos and ok_bid_pnl and ok_bid_pending and ok_bid_price: 
                     token0_buy_order = Order(token_id=self.token0_id, price=i, tick_size=self.tick_size, size=self.bid_size, 
                                             side=0, create_time=datetime.now(), market=self.market)
                     # if signal changes, we need to change the order
@@ -237,7 +250,7 @@ class PlacementOneSide(BasePlacement):
             for i in range(ask_submit_price_tick, ask_leave_price_tick, 1):
                 ok_ask_fund = True
                 _, ok_ask_pending = self.check_pending_order(i, 1)
-                if ok_ask_fund and ok_ask_maxpos and ok_ask_pnl and ok_ask_pending and ok_ask_price: 
+                if self.is_game_status and ok_ask_fund and ok_ask_maxpos and ok_ask_pnl and ok_ask_pending and ok_ask_price: 
                     token0_sell_order = Order(token_id=self.token0_id, price=i, tick_size=self.tick_size, size=self.ask_size, 
                                             side=1, create_time=datetime.now(), market=self.market)
                     self.cancel_invalid_order(1)
