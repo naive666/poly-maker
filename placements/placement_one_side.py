@@ -239,7 +239,7 @@ class PlacementOneSide(BasePlacement):
                 if not self.is_game_status:
                     # cancel all pending orders
                     if self.om.token0_order_cnt > 0: # cancel all orders for both side
-                        self.cance_all_asset(self.token0_id)
+                        self.cancel_all_asset(self.token0_id)
                 if self.is_game_status and ok_bid_fund and ok_bid_maxpos and ok_bid_pnl and ok_bid_pending and ok_bid_price: 
                     token0_buy_order = Order(token_id=self.token0_id, price=i, tick_size=self.tick_size, size=self.bid_size, 
                                             side=0, create_time=datetime.now(), market=self.market)

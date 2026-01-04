@@ -247,7 +247,7 @@ class BasePlacement:
         # cancel all pending orders
         global_state.client.cancel_all_asset(asset)
 
-    def cance_all_market(self, market:str):
+    def cancel_all_market(self, market:str):
         global_state.client.cancel_all_market(market)
     
 

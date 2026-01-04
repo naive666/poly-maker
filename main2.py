@@ -52,41 +52,44 @@ def update_once(all='Full Sports Markets', sel='Selected Sports Markets', graph_
 
     for idx, row in global_state.df.iterrows():
         # check if the market is valid
-        min_hour, max_hour = 3, 48
+        min_hour, max_hour = 1, 48
         is_market_valid = check_valid_market(row, volume_thred=20000, min_hour=min_hour, max_hour=max_hour)
         if not is_market_valid:
             continue 
-        token_id = str(row['token1'])
-        token2_id = str(row['token2'])
-        best_bid = Decimal(row['best_bid'])
-        best_ask = Decimal(row['best_ask'])
-        # only trade small winrate one
-        if best_bid > 0.5:
-            token_id, token2_id = token2_id, token_id
-        conditional_id = row['condition_id']
-        order_size = Decimal(row['trade_size'])
-        bbo_size_thred = Decimal(row['bbo_size_thred'])
-        bbo_gap_thred = int(row['bbo_gap_thred'])
-        quote_NLevel = int(row['quote_NLevel'])
-        max_pos = Decimal(row['max_pos'])
-        single_pos_percent = Decimal(row['single_pos_percent'])
-        maxloss = Decimal(row['maxloss'])
-        question = row['question']
-        position_update_time_thred = 5
-        global_state.lock[conditional_id] = asyncio.Lock()
-        order_manager = OrderManager(conditional_id)
-        update_period = int(graph_update_period)
-        max_level_thred = int(max_level_thred)
-        game_start_time = row['gameStartTime']
-        global_state.market_token_info[conditional_id] = [token_id, token2_id, question]
-        exe_config = {'quote_NLevel': quote_NLevel, 'max_pos':max_pos, 'single_pos_percent':single_pos_percent, 'maxloss': maxloss}
-        strategy = strategy_202511(token_id, order_size, bbo_size_thred, bbo_gap_thred, update_period, max_level_thred)
-        placement = PlacementOneSide( token_id, token2_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager, min_valid_hour=min_hour, max_valid_hour=max_hour, game_start_time=game_start_time)
-        global_state.strategy_dict[conditional_id] = [placement]
-        global_state.strategy_list_all += global_state.strategy_dict[conditional_id]
-        valid_mkt_cnt += 1
-        if token_id not in global_state.all_tokens:
-            global_state.all_tokens.append(token_id)
+        try:
+            token_id = str(row['token1'])
+            token2_id = str(row['token2'])
+            best_bid = Decimal(row['best_bid'])
+            best_ask = Decimal(row['best_ask'])
+            # only trade small winrate one
+            if best_bid > 0.5:
+                token_id, token2_id = token2_id, token_id
+            conditional_id = row['condition_id']
+            order_size = Decimal("8") # Decimal(row['trade_size'])
+            bbo_size_thred = Decimal(row['bbo_size_thred'])
+            bbo_gap_thred = int(row['bbo_gap_thred'])
+            quote_NLevel = int(row['quote_NLevel'])
+            max_pos = Decimal("8") # Decimal(row['max_pos'])
+            single_pos_percent = Decimal(row['single_pos_percent'])
+            maxloss = Decimal("8") # Decimal(row['maxloss'])
+            question = row['question']
+            position_update_time_thred = 5
+            global_state.lock[conditional_id] = asyncio.Lock()
+            order_manager = OrderManager(conditional_id)
+            update_period = int(graph_update_period)
+            max_level_thred = int(max_level_thred)
+            game_start_time = row['gameStartTime']
+            global_state.market_token_info[conditional_id] = [token_id, token2_id, question]
+            exe_config = {'quote_NLevel': quote_NLevel, 'max_pos':max_pos, 'single_pos_percent':single_pos_percent, 'maxloss': maxloss}
+            strategy = strategy_202511(token_id, order_size, bbo_size_thred, bbo_gap_thred, update_period, max_level_thred)
+            placement = PlacementOneSide( token_id, token2_id, conditional_id, strategy, exe_config, position_update_time_thred, order_manager, min_valid_hour=min_hour, max_valid_hour=max_hour, game_start_time=game_start_time)
+            global_state.strategy_dict[conditional_id] = [placement]
+            global_state.strategy_list_all += global_state.strategy_dict[conditional_id]
+            valid_mkt_cnt += 1
+            if token_id not in global_state.all_tokens:
+                global_state.all_tokens.append(token_id)
+        except:
+            continue
     log_str = f'total valid market: {valid_mkt_cnt}'
     print(log_str)
     logger.info(log_str)

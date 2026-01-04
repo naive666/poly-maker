@@ -17,19 +17,20 @@ logger = logging.getLogger("polymarket_bot")
 
 def process_book_data_hz(json_data):
     if json_data['asset_id'] not in global_state.orderbook_data:
-        bid_df = pd.DataFrame(json_data['bids']).sort_values(by='price', ascending=False)
-        bid_df['price'] = bid_df['price'].apply(Decimal)
-        bid_df = bid_df.set_index('price')
-        bid_df['size'] = bid_df['size'].apply(Decimal)
-        ask_df = pd.DataFrame(json_data['asks']).sort_values(by='price', ascending=True)
-        ask_df['price'] = ask_df['price'].apply(Decimal)
-        ask_df = ask_df.set_index('price')
-        ask_df['size'] = ask_df['size'].apply(Decimal)
-        orderbook = OrderBook(json_data['asset_id'])
-        orderbook.bid_levels = bid_df
-        orderbook.ask_levels = ask_df
-        orderbook.update_ts = datetime.now()
-        global_state.orderbook_data[json_data['asset_id']] = orderbook
+        if len(json_data['bids']) > 0:
+            bid_df = pd.DataFrame(json_data['bids']).sort_values(by='price', ascending=False)
+            bid_df['price'] = bid_df['price'].apply(Decimal)
+            bid_df = bid_df.set_index('price')
+            bid_df['size'] = bid_df['size'].apply(Decimal)
+            ask_df = pd.DataFrame(json_data['asks']).sort_values(by='price', ascending=True)
+            ask_df['price'] = ask_df['price'].apply(Decimal)
+            ask_df = ask_df.set_index('price')
+            ask_df['size'] = ask_df['size'].apply(Decimal)
+            orderbook = OrderBook(json_data['asset_id'])
+            orderbook.bid_levels = bid_df
+            orderbook.ask_levels = ask_df
+            orderbook.update_ts = datetime.now()
+            global_state.orderbook_data[json_data['asset_id']] = orderbook
     else:
         # update bid
         for bid_snapshot in json_data['bids']:
